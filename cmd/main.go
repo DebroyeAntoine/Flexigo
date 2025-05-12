@@ -5,16 +5,18 @@ import (
 	"log"
 
 	"github.com/DebroyeAntoine/flexigo/internal/config"
+	"github.com/DebroyeAntoine/flexigo/internal/ui"
 )
 
 func main() {
 	cfg, err := config.LoadConfig("assets/config.yaml")
 	if err != nil {
-		log.Fatalf("Erreur de chargement de config: %v", err)
+		log.Fatalf("error while loading configuration: %v", err)
 	}
 
 	fmt.Println("== Actions disponibles ==")
 	for i, block := range cfg.Blocks {
 		fmt.Printf("[%d] %s (%s)\n", i+1, block.Label, block.Type)
 	}
+	ui.StartUI(cfg)
 }
