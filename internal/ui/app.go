@@ -18,7 +18,7 @@ func renderBlocks(blocks []types.Action, onClick func(types.Action)) fyne.Canvas
 			return func() {
 				onClick(b)
 			}
-		}(block)) // closure propre
+		}(block))
 		grid.Add(btn)
 	}
 	return grid
@@ -31,19 +31,36 @@ func StartUI(cfg *types.Config) error {
 
 	contentContainer := container.NewVBox()
 
+	var navigationStack [][]types.Action
+
 	// Mandatory to declare it to use it recursively
 	var updateView func(blocks []types.Action)
 
 	updateView = func(blocks []types.Action) {
-		contentContainer.Objects = []fyne.CanvasObject{
-			renderBlocks(blocks, func(block types.Action) {
-				if block.Type == "container" {
-					updateView(block.Children)
-				} else {
-					fmt.Println("Action lancée :", block.Label)
-				}
-			}),
+		content := []fyne.CanvasObject{}
+
+		// Add a back button if the stack is non empty
+		if len(navigationStack) > 0 {
+			backBtn := widget.NewButton("Back", func() {
+				// Show the last stack of blocs
+				last := navigationStack[len(navigationStack)-1]
+				navigationStack = navigationStack[:len(navigationStack)-1]
+				updateView(last)
+			})
+			content = append(content, backBtn)
 		}
+
+		// Render of blocs
+		content = append(content, renderBlocks(blocks, func(block types.Action) {
+			if block.Type == "container" {
+				navigationStack = append(navigationStack, blocks)
+				updateView(block.Children)
+			} else {
+				fmt.Println("Action lancée :", block.Label)
+			}
+		}))
+
+		contentContainer.Objects = content
 		contentContainer.Refresh()
 	}
 
