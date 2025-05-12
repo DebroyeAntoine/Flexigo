@@ -1,0 +1,72 @@
+# Binaire Go
+/bin/
+/build/
+
+/# Binaire spécifique à l'OS
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Cache de Go
+*.out
+*.test
+*.cover
+
+# Fichiers de dépendances de Go
+/vendor/
+
+# Fichiers de configuration de l'éditeur
+.idea/
+.vscode/
+
+# Fichiers de l'éditeur de texte
+*~
+# Exclure tous les fichiers de sauvegarde de l'éditeur
+*.bak
+*.swp
+
+# Fichiers de log
+*.log
+
+# Fichiers de l'environnement
+.env
+
+# Cache de go modules (pour Go 1.11+)
+.gomodcache/
+
+# Fichiers de compilateur Go
+*.o
+*.a
+*.so
+
+# Fichiers de test
+*.test
+
+# Coverage reports
+*.out
+
+# Dump de la pile (si Go panic)
+*.stackdump
+
+# Fichiers de configuration des outils de testing (comme l'outil de couverture de Go)
+*.cov
+
+
+### react ###
+.DS_*
+*.log
+logs
+**/*.backup.*
+**/*.back.*
+
+node_modules
+bower_components
+
+*.sublime*
+
+psd
+thumb
+sketch
+
