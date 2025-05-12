@@ -1,13 +1,25 @@
 blocks:
-  - label: "Allumer la lumière du salon"
-    type: http
-    method: POST
-    url: "http://example.com/api"
-    headers:
-      Authorization: "Bearer ${DUMMY_TOKEN}"
-    body: '{"entity_id": "light.salon"}'
-
-  - label: "Lire Bonjour"
-    type: tts
-    text: "Bonjour, comment vas-tu ?"
+  - label: "Menu Principal"
+    type: container
+    children:
+      - label: "Allumer la lumière du salon"
+        type: http
+        method: POST
+        url: "http://example.com/api"
+        headers:
+          Authorization: "Bearer ${DUMMY_TOKEN}"
+        body: '{"entity_id": "light.salon"}'
+      - label: "Lire Bonjour"
+        type: tts
+        text: "Bonjour, comment vas-tu ?"
+      - label: "Menu Télévision"
+        type: container
+        children:
+          - label: "Allumer la TV"
+            type: http
+            method: POST
+            url: "http://example.com/api"
+            headers:
+              Authorization: "Bearer ${DUMMY_TOKEN}"
+            body: '{"entity_id": "tv.living_room"}'
 
