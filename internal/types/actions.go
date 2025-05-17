@@ -11,6 +11,7 @@ type Action struct {
 	Command  string            `yaml:"command,omitempty"`
 	Args     []string          `yaml:"args,omitempty"`
 	Children []Action          `yaml:"children,omitempty"` // Sous-blocs récursifs
+	Timer    int               `yaml:"timer,omitempty"`
 }
 
 type Config struct {

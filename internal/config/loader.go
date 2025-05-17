@@ -10,6 +10,36 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
+const defaultTimer = 5000 // in ms
+
+func applyDefaultTimer(actions []types.Action, defaultTimer int) {
+	for i := range actions {
+		if actions[i].Timer == 0 {
+			actions[i].Timer = defaultTimer
+		}
+
+		if actions[i].Type == "container" {
+			// For the inheritance, give to children the parent timer as default
+			applyDefaultTimer(actions[i].Children, actions[i].Timer)
+		}
+	}
+}
+
+func UniformizeTimer(cfg *types.Config) {
+	if len(cfg.Blocks) == 0 {
+		return
+	}
+
+	for i := range cfg.Blocks {
+		if cfg.Blocks[i].Timer == 0 {
+			cfg.Blocks[i].Timer = defaultTimer
+		}
+		if cfg.Blocks[i].Type == "container" {
+			applyDefaultTimer(cfg.Blocks[i].Children, cfg.Blocks[i].Timer)
+		}
+	}
+}
+
 func LoadConfig(path string) (*types.Config, error) {
 	_ = godotenv.Load(".env")
 
@@ -22,6 +52,8 @@ func LoadConfig(path string) (*types.Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+
+	UniformizeTimer(&cfg)
 
 	return &cfg, nil
 }

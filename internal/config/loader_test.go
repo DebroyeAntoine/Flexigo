@@ -52,7 +52,7 @@ blocks:
 		t.Fatalf("expected 1 child block, got %d", len(root.Children))
 	}
 	child := root.Children[0]
-	if child.Type != "tts" || child.Text != "Bonjour !" {
+	if child.Type != "tts" || child.Text != "Hello world!" {
 		t.Errorf("unexpected child content: %+v", child)
 	}
 }
@@ -183,4 +183,37 @@ blocks:
 			}
 		})
 	}
+}
+
+func TestLoadConfig_Timer(t *testing.T) {
+	yaml := `
+blocks:
+  - label: "container1"
+    type: container
+    children:
+      - label: "container2"
+        timer: 3000
+        type: container
+        children:
+          - label: "item"
+            type: tts
+            text: "test"
+`
+	file := writeTempYAML(t, yaml)
+
+	cfg, err := LoadConfig(file)
+	if err != nil {
+		t.Fatalf("unexpected error loading unknown type: %v", err)
+	}
+
+	if cfg.Blocks[0].Timer != defaultTimer {
+		t.Errorf("expected timer to be the default: %d but got %d", defaultTimer, cfg.Blocks[0].Timer)
+	}
+	if cfg.Blocks[0].Children[0].Timer != 3000 {
+		t.Errorf("expected timer to be the defined: %d but got %d", 3000, cfg.Blocks[0].Children[0].Timer)
+	}
+	if cfg.Blocks[0].Children[0].Children[0].Timer != 3000 {
+		t.Errorf("expected timer to be the herited once: %d but got %d", 3000, cfg.Blocks[0].Children[0].Children[0].Timer)
+	}
+
 }
