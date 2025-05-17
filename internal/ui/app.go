@@ -12,15 +12,22 @@ import (
 
 // Create a button for each block
 func renderBlocks(blocks []types.Action, onClick func(types.Action)) fyne.CanvasObject {
-	grid := container.NewAdaptiveGrid(len(blocks))
+	const buttonsPerRow = 3
+	grid := container.NewGridWithColumns(buttonsPerRow)
+
 	for _, block := range blocks {
 		btn := widget.NewButton(block.Label, func(b types.Action) func() {
 			return func() {
 				onClick(b)
 			}
 		}(block))
+
+		btn.Resize(fyne.NewSize(100, 40))
+		btn.Importance = widget.MediumImportance
+
 		grid.Add(btn)
 	}
+
 	return grid
 }
 
@@ -47,6 +54,8 @@ func StartUI(cfg *types.Config) error {
 				navigationStack = navigationStack[:len(navigationStack)-1]
 				updateView(last)
 			})
+			backBtn.Resize(fyne.NewSize(100, 40))
+			backBtn.Importance = widget.MediumImportance
 			content = append(content, backBtn)
 		}
 
