@@ -5,30 +5,37 @@ import (
 	"testing"
 )
 
-func TestLoadConfig_Basic(t *testing.T) {
-	// YAML de test
-	yamlData := `
-blocks:
-  - label: "Menu Principal"
-    type: container
-    children:
-      - label: "Dire bonjour"
-        type: tts
-        text: "Bonjour !"
-`
-
-	tmpFile, err := os.CreateTemp("", "test_config_*.yaml")
+// For each test case, we need to create a config file
+func writeTempYAML(t *testing.T, content string) string {
+	tmpFile, err := os.CreateTemp("", "config_*.yaml")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	t.Cleanup(func() { os.Remove(tmpFile.Name()) })
 
-	if _, err := tmpFile.Write([]byte(yamlData)); err != nil {
+	if _, err := tmpFile.Write([]byte(content)); err != nil {
 		t.Fatalf("failed to write to temp file: %v", err)
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("failed to close temp file: %v", err)
+	}
 
-	cfg, err := LoadConfig(tmpFile.Name())
+	return tmpFile.Name()
+}
+
+func TestLoadConfig_Basic(t *testing.T) {
+	yaml := `
+blocks:
+  - label: "Main Menu"
+    type: container
+    children:
+      - label: "Say Hello"
+        type: tts
+        text: "Hello world!"
+`
+	file := writeTempYAML(t, yaml)
+
+	cfg, err := LoadConfig(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned an error: %v", err)
 	}
@@ -50,8 +57,15 @@ blocks:
 	}
 }
 
-func TestLoadConfig_InvalidYAML(t *testing.T) {
-	invalidYAML := `
+func TestLoadConfig_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr bool
+	}{
+		{
+			name: "Invalid YAML",
+			yaml: `
 blocks:
   - label: "Bad Block"
     type: container
@@ -59,61 +73,45 @@ blocks:
       - label: "Oops"
         type: http
         url: "http://example.com
-`
-
-	tmpFile, err := os.CreateTemp("", "invalid_config_*.yaml")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+`,
+			wantErr: true,
+		},
+		{
+			name:    "Empty file",
+			yaml:    ``,
+			wantErr: false,
+		},
 	}
-	defer os.Remove(tmpFile.Name())
 
-	if _, err := tmpFile.Write([]byte(invalidYAML)); err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
-	}
-	tmpFile.Close()
-
-	_, err = LoadConfig(tmpFile.Name())
-	if err == nil {
-		t.Fatal("expected LoadConfig to fail on invalid YAML, but it succeeded")
-	}
-}
-
-func TestLoadConfig_EmptyFile(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "empty_config_*.yaml")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
-
-	cfg, err := LoadConfig(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("expected no error on empty file, got: %v", err)
-	}
-	if len(cfg.Blocks) != 0 {
-		t.Fatalf("expected 0 blocks, got %d", len(cfg.Blocks))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := writeTempYAML(t, tt.yaml)
+			cfg, err := LoadConfig(file)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if tt.name == "Empty file" && len(cfg.Blocks) != 0 {
+					t.Fatalf("expected 0 blocks, got %d", len(cfg.Blocks))
+				}
+			}
+		})
 	}
 }
 
 func TestLoadConfig_UnknownType(t *testing.T) {
-	yamlData := `
+	yaml := `
 blocks:
   - label: "Unknown Action"
     type: teleport
 `
+	file := writeTempYAML(t, yaml)
 
-	tmpFile, err := os.CreateTemp("", "unknown_type_config_*.yaml")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.Write([]byte(yamlData)); err != nil {
-		t.Fatalf("failed to write to temp file: %v", err)
-	}
-	tmpFile.Close()
-
-	cfg, err := LoadConfig(tmpFile.Name())
+	cfg, err := LoadConfig(file)
 	if err != nil {
 		t.Fatalf("unexpected error loading unknown type: %v", err)
 	}
@@ -123,82 +121,66 @@ blocks:
 	}
 }
 
-func TestLoadConfig_HTTPBlockMissingURL(t *testing.T) {
-	yamlData := `
+func TestLoadConfig_MissingFields(t *testing.T) {
+	tests := []struct {
+		name       string
+		yaml       string
+		blockType  string
+		expectText string
+		expectURL  string
+		expectCmd  string
+	}{
+		{
+			name: "TTS block missing text",
+			yaml: `
+blocks:
+  - label: "Say something"
+    type: tts
+`,
+			blockType: "tts",
+		},
+		{
+			name: "HTTP block missing URL",
+			yaml: `
 blocks:
   - label: "Send request"
     type: http
     method: POST
-`
-
-	tmpFile, err := os.CreateTemp("", "http_missing_url_*.yaml")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(yamlData)
-	tmpFile.Close()
-
-	cfg, err := LoadConfig(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("unexpected error loading config: %v", err)
-	}
-
-	block := cfg.Blocks[0]
-	if block.Type != "http" || block.URL != "" {
-		t.Errorf("expected empty URL for http block, got '%s'", block.URL)
-	}
-}
-
-func TestLoadConfig_TTSBlockMissingText(t *testing.T) {
-	yamlData := `
-blocks:
-  - label: "Say something"
-    type: tts
-`
-
-	tmpFile, err := os.CreateTemp("", "tts_missing_text_*.yaml")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(yamlData)
-	tmpFile.Close()
-
-	cfg, err := LoadConfig(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("unexpected error loading config: %v", err)
-	}
-
-	block := cfg.Blocks[0]
-	if block.Type != "tts" || block.Text != "" {
-		t.Errorf("expected empty text for tts block, got '%s'", block.Text)
-	}
-}
-
-func TestLoadConfig_ExecBlockMissingCommand(t *testing.T) {
-	yamlData := `
+`,
+			blockType: "http",
+		},
+		{
+			name: "Exec block missing command",
+			yaml: `
 blocks:
   - label: "Run script"
     type: exec
     args: ["--version"]
-`
-
-	tmpFile, err := os.CreateTemp("", "exec_missing_command_*.yaml")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(yamlData)
-	tmpFile.Close()
-
-	cfg, err := LoadConfig(tmpFile.Name())
-	if err != nil {
-		t.Fatalf("unexpected error loading config: %v", err)
+`,
+			blockType: "exec",
+		},
 	}
 
-	block := cfg.Blocks[0]
-	if block.Type != "exec" || block.Command != "" {
-		t.Errorf("expected empty command for exec block, got '%s'", block.Command)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := writeTempYAML(t, tt.yaml)
+			cfg, err := LoadConfig(file)
+			if err != nil {
+				t.Fatalf("unexpected error loading config: %v", err)
+			}
+			block := cfg.Blocks[0]
+			if block.Type != tt.blockType {
+				t.Errorf("expected block type '%s', got '%s'", tt.blockType, block.Type)
+			}
+			if block.Text != tt.expectText {
+				t.Errorf("expected text '%s', got '%s'", tt.expectText, block.Text)
+			}
+			if block.URL != tt.expectURL {
+				t.Errorf("expected URL '%s', got '%s'", tt.expectURL, block.URL)
+			}
+			if block.Command != tt.expectCmd {
+				t.Errorf("expected command '%s', got '%s'", tt.expectCmd, block.Command)
+			}
+		})
 	}
 }
