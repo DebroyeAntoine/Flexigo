@@ -18,98 +18,77 @@ const (
 	StateItems
 )
 
-// Create a button for each block
-func renderBlocks(blocks []types.Action, onClick func(types.Action)) (fyne.CanvasObject, [][]*widget.Button) {
-	const buttonsPerRow = 3
-	grid := container.NewGridWithColumns(buttonsPerRow)
-	rows := [][]*widget.Button{}
+type UIManager struct {
+	state            GridState
+	window           fyne.Window
+	contentContainer *fyne.Container
+	catcher          *ClickCatcher
+	navigationStack  [][]types.Action
+}
 
-	currentRow := []*widget.Button{}
-	for i, block := range blocks {
-		btn := widget.NewButton(block.Label, func(b types.Action) func() {
-			return func() {
-				onClick(b)
-			}
-		}(block))
+func NewUIManager(window *fyne.Window) *UIManager {
+	return &UIManager{
+		state:            StateIdle,
+		window:           *window,
+		contentContainer: container.NewVBox(),
+		catcher:          &ClickCatcher{},
+	}
+}
 
-		btn.Resize(fyne.NewSize(100, 40))
-		btn.Importance = widget.MediumImportance
-		grid.Add(btn)
-		currentRow = append(currentRow, btn)
+func (ui *UIManager) refreshUI() {
+	layers := []fyne.CanvasObject{ui.contentContainer}
+	if ui.state == StateIdle {
+		layers = append(layers, ui.catcher)
+	}
+	ui.window.SetContent(container.NewStack(layers...))
+}
 
-		if (i+1)%buttonsPerRow == 0 {
-			rows = append(rows, currentRow)
-			currentRow = []*widget.Button{}
+func (ui *UIManager) updateView(blocks []types.Action) {
+	content := []fyne.CanvasObject{}
+
+	// Add a back button if the stack is non empty
+	if len(ui.navigationStack) > 0 {
+		backBtn := widget.NewButton("Back", func() {
+			// Show the last stack of blocs
+			last := ui.navigationStack[len(ui.navigationStack)-1]
+			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
+			ui.updateView(last)
+			ui.state = StateIdle
+			ui.refreshUI()
+		})
+		backBtn.Resize(fyne.NewSize(100, 40))
+		backBtn.Importance = widget.MediumImportance
+		content = append(content, backBtn)
+	}
+
+	// Render of blocs
+	firstValue, _ := renderBlocks(blocks, func(block types.Action) {
+		if block.Type == "container" {
+			ui.navigationStack = append(ui.navigationStack, blocks)
+			ui.updateView(block.Children)
+		} else {
+			ui.state = StateIdle
+			ui.refreshUI()
+			fmt.Println("Action lancée :", block.Label)
 		}
-	}
-	if len(currentRow) > 0 {
-		rows = append(rows, currentRow)
-	}
-
-	return grid, rows
+	})
+	content = append(content, firstValue)
+	ui.contentContainer.Objects = content
+	ui.contentContainer.Refresh()
 }
 
 // StartUI show the graphical interface with blocks defined in conf
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
+	myUI := NewUIManager(&myWindow)
 
-	contentContainer := container.NewVBox()
-	state := StateIdle
-
-	catcher := &ClickCatcher{}
-
-	var navigationStack [][]types.Action
-
-	// Mandatory to declare it to use it recursively
-	var updateView func(blocks []types.Action)
-
-	refreshUI := func() {
-		layers := []fyne.CanvasObject{contentContainer}
-
-		if state == StateIdle {
-			layers = append(layers, catcher)
-		}
-
-		myWindow.SetContent(container.NewStack(layers...))
-	}
-
-	catcher.OnClick = func() {
-		if state == StateIdle {
+	myUI.catcher.OnClick = func() {
+		if myUI.state == StateIdle {
 			fmt.Println("Lancement du scan des lignes")
-			state = StateRows
-			refreshUI()
+			myUI.state = StateRows
+			myUI.refreshUI()
 		}
-	}
-
-	updateView = func(blocks []types.Action) {
-		content := []fyne.CanvasObject{}
-
-		// Add a back button if the stack is non empty
-		if len(navigationStack) > 0 {
-			backBtn := widget.NewButton("Back", func() {
-				// Show the last stack of blocs
-				last := navigationStack[len(navigationStack)-1]
-				navigationStack = navigationStack[:len(navigationStack)-1]
-				updateView(last)
-			})
-			backBtn.Resize(fyne.NewSize(100, 40))
-			backBtn.Importance = widget.MediumImportance
-			content = append(content, backBtn)
-		}
-
-		// Render of blocs
-		firstValue, _ := renderBlocks(blocks, func(block types.Action) {
-			if block.Type == "container" {
-				navigationStack = append(navigationStack, blocks)
-				updateView(block.Children)
-			} else {
-				fmt.Println("Action lancée :", block.Label)
-			}
-		})
-		content = append(content, firstValue)
-		contentContainer.Objects = content
-		contentContainer.Refresh()
 	}
 
 	// Start after the main bloc
@@ -117,12 +96,12 @@ func StartUI(cfg *types.Config) error {
 		fmt.Println("No bloc found.")
 		return nil
 	}
-	updateView(cfg.Blocks[0].Children)
-	refreshUI()
+	myUI.updateView(cfg.Blocks[0].Children)
+	myUI.refreshUI()
 
 	myWindow.SetContent(container.NewStack(
-		contentContainer, // normal grid
-		catcher,          // global click catcher
+		myUI.contentContainer, // normal grid
+		myUI.catcher,          // global click catcher
 	))
 
 	myWindow.ShowAndRun()
