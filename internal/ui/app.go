@@ -10,11 +10,19 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
+type GridState int
+
+const (
+	StateIdle GridState = iota
+	StateRows
+	StateItems
+)
+
 // Create a button for each block
 func renderBlocks(blocks []types.Action, onClick func(types.Action)) (fyne.CanvasObject, [][]*widget.Button) {
 	const buttonsPerRow = 3
 	grid := container.NewGridWithColumns(buttonsPerRow)
-	rows := make([][]*widget.Button, 4)
+	rows := [][]*widget.Button{}
 
 	currentRow := []*widget.Button{}
 	for i, block := range blocks {
@@ -26,13 +34,10 @@ func renderBlocks(blocks []types.Action, onClick func(types.Action)) (fyne.Canva
 
 		btn.Resize(fyne.NewSize(100, 40))
 		btn.Importance = widget.MediumImportance
-
 		grid.Add(btn)
-
 		currentRow = append(currentRow, btn)
 
-		// Exemple : 3 boutons par ligne
-		if (i+1)%3 == 0 {
+		if (i+1)%buttonsPerRow == 0 {
 			rows = append(rows, currentRow)
 			currentRow = []*widget.Button{}
 		}
@@ -50,11 +55,32 @@ func StartUI(cfg *types.Config) error {
 	myWindow := myApp.NewWindow("Flexigo")
 
 	contentContainer := container.NewVBox()
+	state := StateIdle
+
+	catcher := &ClickCatcher{}
 
 	var navigationStack [][]types.Action
 
 	// Mandatory to declare it to use it recursively
 	var updateView func(blocks []types.Action)
+
+	refreshUI := func() {
+		layers := []fyne.CanvasObject{contentContainer}
+
+		if state == StateIdle {
+			layers = append(layers, catcher)
+		}
+
+		myWindow.SetContent(container.NewStack(layers...))
+	}
+
+	catcher.OnClick = func() {
+		if state == StateIdle {
+			fmt.Println("Lancement du scan des lignes")
+			state = StateRows
+			refreshUI()
+		}
+	}
 
 	updateView = func(blocks []types.Action) {
 		content := []fyne.CanvasObject{}
@@ -92,8 +118,13 @@ func StartUI(cfg *types.Config) error {
 		return nil
 	}
 	updateView(cfg.Blocks[0].Children)
+	refreshUI()
 
-	myWindow.SetContent(contentContainer)
+	myWindow.SetContent(container.NewStack(
+		contentContainer, // normal grid
+		catcher,          // global click catcher
+	))
+
 	myWindow.ShowAndRun()
 	return nil
 }
