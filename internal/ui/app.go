@@ -11,11 +11,13 @@ import (
 )
 
 // Create a button for each block
-func renderBlocks(blocks []types.Action, onClick func(types.Action)) fyne.CanvasObject {
+func renderBlocks(blocks []types.Action, onClick func(types.Action)) (fyne.CanvasObject, [][]*widget.Button) {
 	const buttonsPerRow = 3
 	grid := container.NewGridWithColumns(buttonsPerRow)
+	rows := make([][]*widget.Button, 4)
 
-	for _, block := range blocks {
+	currentRow := []*widget.Button{}
+	for i, block := range blocks {
 		btn := widget.NewButton(block.Label, func(b types.Action) func() {
 			return func() {
 				onClick(b)
@@ -26,9 +28,20 @@ func renderBlocks(blocks []types.Action, onClick func(types.Action)) fyne.Canvas
 		btn.Importance = widget.MediumImportance
 
 		grid.Add(btn)
+
+		currentRow = append(currentRow, btn)
+
+		// Exemple : 3 boutons par ligne
+		if (i+1)%3 == 0 {
+			rows = append(rows, currentRow)
+			currentRow = []*widget.Button{}
+		}
+	}
+	if len(currentRow) > 0 {
+		rows = append(rows, currentRow)
 	}
 
-	return grid
+	return grid, rows
 }
 
 // StartUI show the graphical interface with blocks defined in conf
@@ -60,15 +73,15 @@ func StartUI(cfg *types.Config) error {
 		}
 
 		// Render of blocs
-		content = append(content, renderBlocks(blocks, func(block types.Action) {
+		firstValue, _ := renderBlocks(blocks, func(block types.Action) {
 			if block.Type == "container" {
 				navigationStack = append(navigationStack, blocks)
 				updateView(block.Children)
 			} else {
 				fmt.Println("Action lancée :", block.Label)
 			}
-		}))
-
+		})
+		content = append(content, firstValue)
 		contentContainer.Objects = content
 		contentContainer.Refresh()
 	}
