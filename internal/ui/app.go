@@ -26,13 +26,18 @@ type UIManager struct {
 	navigationStack  [][]types.Action
 }
 
-func NewUIManager(window *fyne.Window) *UIManager {
+func NewUIManager(window fyne.Window) *UIManager {
 	return &UIManager{
 		state:            StateIdle,
-		window:           *window,
+		window:           window,
 		contentContainer: container.NewVBox(),
 		catcher:          &ClickCatcher{},
 	}
+}
+
+func (ui *UIManager) setState(state GridState) {
+	ui.state = state
+	ui.refreshUI()
 }
 
 func (ui *UIManager) refreshUI() {
@@ -53,8 +58,7 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 			last := ui.navigationStack[len(ui.navigationStack)-1]
 			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
 			ui.updateView(last)
-			ui.state = StateIdle
-			ui.refreshUI()
+			ui.setState(StateIdle)
 		})
 		backBtn.Resize(fyne.NewSize(100, 40))
 		backBtn.Importance = widget.MediumImportance
@@ -67,8 +71,7 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 			ui.navigationStack = append(ui.navigationStack, blocks)
 			ui.updateView(block.Children)
 		} else {
-			ui.state = StateIdle
-			ui.refreshUI()
+			ui.setState(StateIdle)
 			fmt.Println("Action lancée :", block.Label)
 		}
 	})
@@ -81,13 +84,12 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
-	myUI := NewUIManager(&myWindow)
+	myUI := NewUIManager(myWindow)
 
 	myUI.catcher.OnClick = func() {
 		if myUI.state == StateIdle {
 			fmt.Println("Lancement du scan des lignes")
-			myUI.state = StateRows
-			myUI.refreshUI()
+			myUI.setState(StateRows)
 		}
 	}
 
