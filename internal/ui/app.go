@@ -22,7 +22,6 @@ type UIManager struct {
 	state            GridState
 	window           fyne.Window
 	contentContainer *fyne.Container
-	catcher          *ClickCatcher
 	navigationStack  [][]types.Action
 }
 
@@ -31,7 +30,23 @@ func NewUIManager(window fyne.Window) *UIManager {
 		state:            StateIdle,
 		window:           window,
 		contentContainer: container.NewVBox(),
-		catcher:          &ClickCatcher{},
+	}
+}
+
+func (ui *UIManager) HandleEnterKey() {
+	switch ui.state {
+	case StateIdle:
+		fmt.Println("Entrée → début du scan des lignes")
+		ui.state = StateRows
+		// ui.StartRowScan() ← que tu ajoutes ensuite
+	case StateRows:
+		fmt.Println("Entrée → sélection d’une ligne, début du scan des items")
+		ui.state = StateItems
+		// ui.StartItemScan() ← idem
+	case StateItems:
+		fmt.Println("Entrée → sélection de l’item, exécution")
+		ui.state = StateIdle
+		// ui.ExecuteCurrentAction()
 	}
 }
 
@@ -42,9 +57,6 @@ func (ui *UIManager) setState(state GridState) {
 
 func (ui *UIManager) refreshUI() {
 	layers := []fyne.CanvasObject{ui.contentContainer}
-	if ui.state == StateIdle {
-		layers = append(layers, ui.catcher)
-	}
 	ui.window.SetContent(container.NewStack(layers...))
 }
 
@@ -85,13 +97,11 @@ func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
 	myUI := NewUIManager(myWindow)
-
-	myUI.catcher.OnClick = func() {
-		if myUI.state == StateIdle {
-			fmt.Println("Lancement du scan des lignes")
-			myUI.setState(StateRows)
+	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
+		if k.Name == fyne.KeyReturn {
+			myUI.HandleEnterKey()
 		}
-	}
+	})
 
 	// Start after the main bloc
 	if len(cfg.Blocks) == 0 {
@@ -103,7 +113,6 @@ func StartUI(cfg *types.Config) error {
 
 	myWindow.SetContent(container.NewStack(
 		myUI.contentContainer, // normal grid
-		myUI.catcher,          // global click catcher
 	))
 
 	myWindow.ShowAndRun()
