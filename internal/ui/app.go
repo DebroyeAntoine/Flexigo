@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -23,6 +24,8 @@ type UIManager struct {
 	window           fyne.Window
 	contentContainer *fyne.Container
 	navigationStack  [][]types.Action
+	rows             [][]*widget.Button
+	selectedRow      []*widget.Button
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -38,11 +41,11 @@ func (ui *UIManager) HandleEnterKey() {
 	case StateIdle:
 		fmt.Println("Entrée → début du scan des lignes")
 		ui.state = StateRows
-		// ui.StartRowScan() ← que tu ajoutes ensuite
+		ui.StartRowsScan(func(t int) { fmt.Println(t) })
 	case StateRows:
 		fmt.Println("Entrée → sélection d’une ligne, début du scan des items")
 		ui.state = StateItems
-		// ui.StartItemScan() ← idem
+		ui.StartItemScan()
 	case StateItems:
 		fmt.Println("Entrée → sélection de l’item, exécution")
 		ui.state = StateIdle
@@ -78,7 +81,8 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 	}
 
 	// Render of blocs
-	firstValue, _ := renderBlocks(blocks, func(block types.Action) {
+	var firstValue fyne.CanvasObject
+	firstValue, ui.rows = renderBlocks(blocks, func(block types.Action) {
 		if block.Type == "container" {
 			ui.navigationStack = append(ui.navigationStack, blocks)
 			ui.updateView(block.Children)
@@ -90,6 +94,85 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 	content = append(content, firstValue)
 	ui.contentContainer.Objects = content
 	ui.contentContainer.Refresh()
+}
+
+func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
+	ticker := time.NewTicker(1000 * time.Millisecond) // to be changed with the conf part
+	done := make(chan bool)
+
+	currentRow := 0
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if currentRow >= len(ui.rows) {
+					ticker.Stop()
+					done <- true
+					return
+				}
+				rowToHighlight := currentRow // Capturer la valeur actuelle
+				fyne.Do(func() {
+					highlightRow(ui.rows, rowToHighlight)
+				})
+				ui.selectedRow = ui.rows[currentRow]
+				currentRow++
+			}
+		}
+	}()
+}
+
+func highlightRow(rows [][]*widget.Button, index int) {
+	for i, row := range rows {
+		for _, btn := range row {
+			if i == index {
+				btn.Importance = widget.HighImportance // par exemple
+			} else {
+				btn.Importance = widget.MediumImportance
+			}
+			btn.Refresh()
+		}
+	}
+}
+
+func (ui *UIManager) StartItemScan() {
+	ticker := time.NewTicker(1000 * time.Millisecond) // to be changed with the conf part
+	done := make(chan bool)
+
+	currentCol := 0
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if currentCol >= len(ui.selectedRow) {
+					ticker.Stop()
+					done <- true
+					return
+				}
+				itemToHighlight := currentCol // Capturer la valeur actuelle
+				fyne.Do(func() {
+					highlightItem(ui.selectedRow, itemToHighlight)
+				})
+				currentCol++
+			}
+		}
+	}()
+}
+
+func highlightItem(items []*widget.Button, index int) {
+	for i, item := range items {
+		if i == index {
+			item.Importance = widget.HighImportance // par exemple
+		} else {
+			item.Importance = widget.MediumImportance
+		}
+		item.Refresh()
+	}
 }
 
 // StartUI show the graphical interface with blocks defined in conf
@@ -114,6 +197,7 @@ func StartUI(cfg *types.Config) error {
 	myWindow.SetContent(container.NewStack(
 		myUI.contentContainer, // normal grid
 	))
+	fmt.Printf("%T\n", myUI.window.Canvas())
 
 	myWindow.ShowAndRun()
 	return nil
