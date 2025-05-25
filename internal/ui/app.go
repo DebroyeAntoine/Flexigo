@@ -26,6 +26,8 @@ type UIManager struct {
 	navigationStack  [][]types.Action
 	rows             [][]*widget.Button
 	selectedRow      []*widget.Button
+	rowScanDone      chan bool
+	itemScanDone     chan bool
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -41,12 +43,21 @@ func (ui *UIManager) HandleEnterKey() {
 	case StateIdle:
 		fmt.Println("Entrée → début du scan des lignes")
 		ui.state = StateRows
+		ui.rowScanDone = make(chan bool)
 		ui.StartRowsScan(func(t int) { fmt.Println(t) })
 	case StateRows:
+		if ui.selectedRow == nil {
+			fmt.Println("nul")
+			ui.state = StateIdle
+			break
+		}
+		ui.rowScanDone <- true
 		fmt.Println("Entrée → sélection d’une ligne, début du scan des items")
 		ui.state = StateItems
+		ui.itemScanDone = make(chan bool)
 		ui.StartItemScan()
 	case StateItems:
+		ui.itemScanDone <- true
 		fmt.Println("Entrée → sélection de l’item, exécution")
 		ui.state = StateIdle
 		// ui.ExecuteCurrentAction()
@@ -98,19 +109,18 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	ticker := time.NewTicker(1000 * time.Millisecond) // to be changed with the conf part
-	done := make(chan bool)
 
 	currentRow := 0
 
 	go func() {
 		for {
 			select {
-			case <-done:
+			case <-ui.rowScanDone:
 				return
 			case <-ticker.C:
 				if currentRow >= len(ui.rows) {
 					ticker.Stop()
-					done <- true
+					ui.rowScanDone <- true
 					return
 				}
 				rowToHighlight := currentRow // Capturer la valeur actuelle
@@ -139,19 +149,18 @@ func highlightRow(rows [][]*widget.Button, index int) {
 
 func (ui *UIManager) StartItemScan() {
 	ticker := time.NewTicker(1000 * time.Millisecond) // to be changed with the conf part
-	done := make(chan bool)
 
 	currentCol := 0
 
 	go func() {
 		for {
 			select {
-			case <-done:
+			case <-ui.itemScanDone:
 				return
 			case <-ticker.C:
 				if currentCol >= len(ui.selectedRow) {
 					ticker.Stop()
-					done <- true
+					ui.itemScanDone <- true
 					return
 				}
 				itemToHighlight := currentCol // Capturer la valeur actuelle
