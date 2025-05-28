@@ -26,6 +26,7 @@ type UIManager struct {
 	navigationStack  [][]types.Action
 	rows             [][]*widget.Button
 	selectedRow      []*widget.Button
+	selectedItem     *widget.Button
 	rowScanDone      chan bool
 	itemScanDone     chan bool
 }
@@ -41,24 +42,16 @@ func NewUIManager(window fyne.Window) *UIManager {
 func (ui *UIManager) HandleEnterKey() {
 	switch ui.state {
 	case StateIdle:
-		fmt.Println("Entrée → début du scan des lignes")
 		ui.state = StateRows
 		ui.rowScanDone = make(chan bool)
 		ui.StartRowsScan(func(t int) { fmt.Println(t) })
 	case StateRows:
-		if ui.selectedRow == nil {
-			fmt.Println("nul")
-			ui.state = StateIdle
-			break
-		}
 		ui.rowScanDone <- true
-		fmt.Println("Entrée → sélection d’une ligne, début du scan des items")
 		ui.state = StateItems
 		ui.itemScanDone = make(chan bool)
 		ui.StartItemScan()
 	case StateItems:
 		ui.itemScanDone <- true
-		fmt.Println("Entrée → sélection de l’item, exécution")
 		ui.state = StateIdle
 		// ui.ExecuteCurrentAction()
 	}
@@ -120,10 +113,15 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 			case <-ticker.C:
 				if currentRow >= len(ui.rows) {
 					ticker.Stop()
+					ui.selectedRow = nil
+					fyne.Do(func() {
+						unhighlightlastRow(ui.rows[len(ui.rows)-1])
+					})
+					ui.state = StateIdle
 					ui.rowScanDone <- true
 					return
 				}
-				rowToHighlight := currentRow // Capturer la valeur actuelle
+				rowToHighlight := currentRow
 				fyne.Do(func() {
 					highlightRow(ui.rows, rowToHighlight)
 				})
@@ -134,11 +132,18 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	}()
 }
 
+func unhighlightlastRow(row []*widget.Button) {
+	for _, btn := range row {
+		btn.Importance = widget.MediumImportance
+		btn.Refresh()
+	}
+}
+
 func highlightRow(rows [][]*widget.Button, index int) {
 	for i, row := range rows {
 		for _, btn := range row {
 			if i == index {
-				btn.Importance = widget.HighImportance // par exemple
+				btn.Importance = widget.HighImportance
 			} else {
 				btn.Importance = widget.MediumImportance
 			}
@@ -160,6 +165,11 @@ func (ui *UIManager) StartItemScan() {
 			case <-ticker.C:
 				if currentCol >= len(ui.selectedRow) {
 					ticker.Stop()
+					fyne.Do(func() {
+						unhighlightlastItem(ui.selectedRow[len(ui.selectedRow)-1])
+					})
+					ui.selectedItem = nil
+					ui.state = StateIdle
 					ui.itemScanDone <- true
 					return
 				}
@@ -167,10 +177,16 @@ func (ui *UIManager) StartItemScan() {
 				fyne.Do(func() {
 					highlightItem(ui.selectedRow, itemToHighlight)
 				})
+				ui.selectedItem = ui.selectedRow[currentCol]
 				currentCol++
 			}
 		}
 	}()
+}
+
+func unhighlightlastItem(btn *widget.Button) {
+	btn.Importance = widget.MediumImportance
+	btn.Refresh()
 }
 
 func highlightItem(items []*widget.Button, index int) {
