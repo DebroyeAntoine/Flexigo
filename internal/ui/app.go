@@ -29,6 +29,7 @@ type UIManager struct {
 	selectedItem     *widget.Button
 	rowScanDone      chan bool
 	itemScanDone     chan bool
+	timer            int
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -88,6 +89,7 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 	var firstValue fyne.CanvasObject
 	firstValue, ui.rows = renderBlocks(blocks, func(block types.Action) {
 		if block.Type == "container" {
+			ui.timer = block.Timer
 			ui.navigationStack = append(ui.navigationStack, blocks)
 			ui.updateView(block.Children)
 		} else {
@@ -101,7 +103,7 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 }
 
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
-	ticker := time.NewTicker(1000 * time.Millisecond) // to be changed with the conf part
+	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 
 	currentRow := 0
 
@@ -153,7 +155,7 @@ func highlightRow(rows [][]*widget.Button, index int) {
 }
 
 func (ui *UIManager) StartItemScan() {
-	ticker := time.NewTicker(1000 * time.Millisecond) // to be changed with the conf part
+	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 
 	currentCol := 0
 
@@ -216,6 +218,7 @@ func StartUI(cfg *types.Config) error {
 		fmt.Println("No bloc found.")
 		return nil
 	}
+	myUI.timer = cfg.Blocks[0].Timer
 	myUI.updateView(cfg.Blocks[0].Children)
 	myUI.refreshUI()
 
