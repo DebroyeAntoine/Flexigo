@@ -74,10 +74,11 @@ func (ui *UIManager) refreshUI() {
 
 func (ui *UIManager) updateView(blocks []types.Action) {
 	content := []fyne.CanvasObject{}
+	var backBtn *widget.Button
 
 	// Add a back button if the stack is non empty
 	if len(ui.navigationStack) > 0 {
-		backBtn := widget.NewButton("Back", func() {
+		backBtn = widget.NewButton("Back", func() {
 			// Show the last stack of blocs
 			last := ui.navigationStack[len(ui.navigationStack)-1]
 			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
@@ -89,21 +90,37 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 		content = append(content, backBtn)
 	}
 
-	// Render of blocs
+	// Render blocks (common logic)
 	var firstValue fyne.CanvasObject
 	ui.blocks = blocks
 	firstValue, ui.rows = ui.renderBlocks(blocks)
+
+	// Add back button to rows if it exists
+	if backBtn != nil {
+		ui.rows = append([][]*widget.Button{{backBtn}}, ui.rows...)
+		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
+	}
+
 	content = append(content, firstValue)
 	ui.contentContainer.Objects = content
 	ui.contentContainer.Refresh()
 }
-
 func (ui *UIManager) ExecuteAction(block types.Action) {
+	if block.Type == "back" {
+		if len(ui.navigationStack) > 0 {
+			last := ui.navigationStack[len(ui.navigationStack)-1]
+			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
+			ui.updateView(last)
+		}
+		ui.setState(StateIdle)
+		return
+	}
 
 	if block.Type == "container" {
 		ui.timer = block.Timer
 		ui.navigationStack = append(ui.navigationStack, ui.blocks)
 		ui.updateView(block.Children)
+		ui.setState(StateIdle)
 	} else {
 		ui.setState(StateIdle)
 		fmt.Println("Action lancée :", block.Label)
