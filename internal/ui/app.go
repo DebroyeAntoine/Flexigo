@@ -30,6 +30,8 @@ type UIManager struct {
 	rowScanDone      chan bool
 	itemScanDone     chan bool
 	timer            int
+	buttonToAction   map[*widget.Button]types.Action
+	blocks           []types.Action
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -54,7 +56,9 @@ func (ui *UIManager) HandleEnterKey() {
 	case StateItems:
 		ui.itemScanDone <- true
 		ui.state = StateIdle
-		// ui.ExecuteCurrentAction()
+		action := ui.buttonToAction[ui.selectedItem]
+		unhighlightlastItem(ui.selectedItem)
+		ui.ExecuteAction(action)
 	}
 }
 
@@ -87,19 +91,23 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 
 	// Render of blocs
 	var firstValue fyne.CanvasObject
-	firstValue, ui.rows = renderBlocks(blocks, func(block types.Action) {
-		if block.Type == "container" {
-			ui.timer = block.Timer
-			ui.navigationStack = append(ui.navigationStack, blocks)
-			ui.updateView(block.Children)
-		} else {
-			ui.setState(StateIdle)
-			fmt.Println("Action lancée :", block.Label)
-		}
-	})
+	ui.blocks = blocks
+	firstValue, ui.rows = ui.renderBlocks(blocks)
 	content = append(content, firstValue)
 	ui.contentContainer.Objects = content
 	ui.contentContainer.Refresh()
+}
+
+func (ui *UIManager) ExecuteAction(block types.Action) {
+
+	if block.Type == "container" {
+		ui.timer = block.Timer
+		ui.navigationStack = append(ui.navigationStack, ui.blocks)
+		ui.updateView(block.Children)
+	} else {
+		ui.setState(StateIdle)
+		fmt.Println("Action lancée :", block.Label)
+	}
 }
 
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
@@ -207,6 +215,7 @@ func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
 	myUI := NewUIManager(myWindow)
+	myUI.buttonToAction = make(map[*widget.Button]types.Action, 10)
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		if k.Name == fyne.KeyReturn {
 			myUI.HandleEnterKey()

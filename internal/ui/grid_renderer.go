@@ -10,18 +10,17 @@ import (
 )
 
 // Create a button for each block
-func renderBlocks(blocks []types.Action, onClick func(types.Action)) (fyne.CanvasObject, [][]*widget.Button) {
+func (ui *UIManager) renderBlocks(blocks []types.Action) (fyne.CanvasObject, [][]*widget.Button) {
 	const buttonsPerRow = 3
 	grid := container.NewGridWithColumns(buttonsPerRow)
 	rows := [][]*widget.Button{}
 
 	currentRow := []*widget.Button{}
 	for i, block := range blocks {
-		btn := widget.NewButton(block.Label, func(b types.Action) func() {
-			return func() {
-				onClick(b)
-			}
-		}(block))
+		btn := widget.NewButton(block.Label, func() {
+			ui.ExecuteAction(block)
+		})
+		ui.buttonToAction[btn] = block
 
 		btn.Resize(fyne.NewSize(100, 40))
 		btn.Importance = widget.MediumImportance
