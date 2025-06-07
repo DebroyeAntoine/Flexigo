@@ -51,6 +51,15 @@ func (ui *UIManager) HandleEnterKey() {
 	case StateRows:
 		ui.rowScanDone <- true
 		ui.state = StateItems
+
+		// Special case for lines with only one element in
+		if len(ui.selectedRow) == 1 {
+			ui.state = StateIdle
+			action := ui.buttonToAction[ui.selectedRow[0]]
+			unhighlightlastItem(ui.selectedRow[0])
+			ui.ExecuteAction(action)
+			break
+		}
 		ui.itemScanDone = make(chan bool)
 		ui.StartItemScan()
 	case StateItems:
