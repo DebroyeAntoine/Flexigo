@@ -38,7 +38,7 @@ func NewUIManager(window fyne.Window) *UIManager {
 	return &UIManager{
 		state:            StateIdle,
 		window:           window,
-		contentContainer: container.NewVBox(),
+		contentContainer: container.NewStack(container.NewVBox()),
 	}
 }
 
@@ -77,12 +77,13 @@ func (ui *UIManager) setState(state GridState) {
 }
 
 func (ui *UIManager) refreshUI() {
-	layers := []fyne.CanvasObject{ui.contentContainer}
-	ui.window.SetContent(container.NewStack(layers...))
+	//layers := []fyne.CanvasObject{ui.contentContainer}
+	ui.window.SetContent(container.NewBorder(nil, nil, nil, nil, ui.contentContainer))
+
+	//ui.window.SetContent(container.NewStack(layers...))
 }
 
 func (ui *UIManager) updateView(blocks []types.Action) {
-	content := []fyne.CanvasObject{}
 	var backBtn *widget.Button
 
 	// Add a back button if the stack is non empty
@@ -94,9 +95,9 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 			ui.updateView(last)
 			ui.setState(StateIdle)
 		})
-		backBtn.Resize(fyne.NewSize(100, 40))
+		backBtn.Resize(fyne.NewSize(300, 300))
 		backBtn.Importance = widget.MediumImportance
-		content = append(content, backBtn)
+		//	content = append(content, backBtn)
 	}
 
 	// Render blocks (common logic)
@@ -110,8 +111,14 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
 	}
 
-	content = append(content, firstValue)
-	ui.contentContainer.Objects = content
+	var finalContent fyne.CanvasObject
+	if backBtn != nil {
+		finalContent = container.NewBorder(backBtn, nil, nil, nil, firstValue)
+	} else {
+		finalContent = firstValue
+	}
+
+	ui.contentContainer.Objects = []fyne.CanvasObject{finalContent}
 	ui.contentContainer.Refresh()
 }
 func (ui *UIManager) ExecuteAction(block types.Action) {
@@ -240,6 +247,7 @@ func highlightItem(items []*widget.Button, index int) {
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
+	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
 	myUI.buttonToAction = make(map[*widget.Button]types.Action, 10)
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
