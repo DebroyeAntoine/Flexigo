@@ -33,6 +33,7 @@ type UIManager struct {
 	buttonToAction   map[*widget.Button]types.Action
 	blocks           []types.Action
 	keyboardLayout   []string
+	textBuffer       string
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -85,27 +86,32 @@ func (ui *UIManager) refreshUI() {
 }
 
 func (ui *UIManager) OpenVirtualKeyboard() {
-	letters := []types.Action{}
-	for _, c := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ " {
-		label := string(c)
-		letters = append(letters, types.Action{
-			Label: label,
-			Type:  "char",
-			//Value: label,
-		})
-	}
-
-	letters = append(letters, types.Action{
-		Label: "Effacer",
-		Type:  "delete",
-	}, types.Action{
-		Label: "Lire",
-		Type:  "speak",
-	})
-
 	ui.navigationStack = append(ui.navigationStack, ui.blocks)
-	ui.updateView(letters)
+	ui.ShowVirtualKeyboardFromLayout()
 	ui.setState(StateIdle)
+	// letters := []types.Action{}
+	//
+	//	for _, c := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ " {
+	//		label := string(c)
+	//		letters = append(letters, types.Action{
+	//			Label: label,
+	//			Type:  "char",
+	//			//Value: label,
+	//		})
+	//	}
+	//
+	//	letters = append(letters, types.Action{
+	//		Label: "Effacer",
+	//		Type:  "delete",
+	//	}, types.Action{
+	//
+	//		Label: "Lire",
+	//		Type:  "speak",
+	//	})
+	//
+	// ui.navigationStack = append(ui.navigationStack, ui.blocks)
+	// ui.updateView(letters)
+	// ui.setState(StateIdle)
 }
 
 func (ui *UIManager) updateView(blocks []types.Action) {
@@ -270,6 +276,73 @@ func highlightItem(items []*widget.Button, index int) {
 		}
 		item.Refresh()
 	}
+}
+
+func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
+	buttonRows := [][]*widget.Button{}
+	grid := container.NewVBox() // One row per keyboard line
+
+	for _, actionRow := range rows {
+		btnRow := []*widget.Button{}
+		buttons := []fyne.CanvasObject{}
+
+		for _, action := range actionRow {
+			btn := widget.NewButton(action.Label, nil)
+			btn.Importance = widget.MediumImportance
+			ui.buttonToAction[btn] = action
+			btnRow = append(btnRow, btn)
+			buttons = append(buttons, btn)
+		}
+
+		buttonRows = append(buttonRows, btnRow)
+
+		row := container.NewGridWithColumns(len(buttons))
+		for _, btn := range buttons {
+			row.Add(btn)
+		}
+
+		grid.Add(row)
+	}
+
+	// Optionnel : ajouter zone de texte en haut
+	inputLabel := widget.NewLabel(ui.textBuffer)
+	inputLabel.Alignment = fyne.TextAlignCenter
+	inputLabel.Wrapping = fyne.TextWrapBreak
+	inputLabel.TextStyle.Bold = true
+	inputLabel.TextStyle.Monospace = true
+
+	final := container.NewBorder(inputLabel, nil, nil, nil, grid)
+
+	ui.rows = buttonRows
+	ui.contentContainer.Objects = []fyne.CanvasObject{final}
+	ui.contentContainer.Refresh()
+}
+
+func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
+	if len(ui.keyboardLayout) == 0 {
+		return
+	}
+
+	rows := [][]types.Action{}
+	for _, line := range ui.keyboardLayout {
+		row := []types.Action{}
+		for _, char := range line {
+			row = append(row, types.Action{
+				Label: string(char),
+				Type:  "char",
+			})
+		}
+		rows = append(rows, row)
+	}
+
+	// Ajoute les boutons spéciaux à la fin
+	rows = append(rows, []types.Action{
+		{Label: "Effacer", Type: "delete"},
+		{Label: "Lire", Type: "speak"},
+	})
+
+	// Affiche ce clavier
+	ui.ShowCustomActionGrid(rows)
 }
 
 func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
