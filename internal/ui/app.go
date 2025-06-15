@@ -32,6 +32,7 @@ type UIManager struct {
 	timer            int
 	buttonToAction   map[*widget.Button]types.Action
 	blocks           []types.Action
+	keyboardLayout   []string
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -271,6 +272,21 @@ func highlightItem(items []*widget.Button, index int) {
 	}
 }
 
+func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
+	for _, action := range *actions {
+		if action.Type == "keyboard" {
+			if len(action.Layout) != 0 {
+				ui.keyboardLayout = action.Layout
+				fmt.Println("coucou")
+				return
+			}
+		}
+		if action.Type == "container" {
+			ui.LoadKeyboard(&action.Children)
+		}
+	}
+}
+
 // StartUI show the graphical interface with blocks defined in conf
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
@@ -290,6 +306,8 @@ func StartUI(cfg *types.Config) error {
 		return nil
 	}
 	myUI.timer = cfg.Blocks[0].Timer
+
+	myUI.LoadKeyboard(&cfg.Blocks)
 	myUI.updateView(cfg.Blocks[0].Children)
 	myUI.refreshUI()
 
