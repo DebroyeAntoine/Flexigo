@@ -83,6 +83,30 @@ func (ui *UIManager) refreshUI() {
 	//ui.window.SetContent(container.NewStack(layers...))
 }
 
+func (ui *UIManager) OpenVirtualKeyboard() {
+	letters := []types.Action{}
+	for _, c := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ " {
+		label := string(c)
+		letters = append(letters, types.Action{
+			Label: label,
+			Type:  "char",
+			//Value: label,
+		})
+	}
+
+	letters = append(letters, types.Action{
+		Label: "Effacer",
+		Type:  "delete",
+	}, types.Action{
+		Label: "Lire",
+		Type:  "speak",
+	})
+
+	ui.navigationStack = append(ui.navigationStack, ui.blocks)
+	ui.updateView(letters)
+	ui.setState(StateIdle)
+}
+
 func (ui *UIManager) updateView(blocks []types.Action) {
 	var backBtn *widget.Button
 
@@ -137,6 +161,10 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		ui.navigationStack = append(ui.navigationStack, ui.blocks)
 		ui.updateView(block.Children)
 		ui.setState(StateIdle)
+	}
+	if block.Type == "keyboard" {
+		ui.OpenVirtualKeyboard()
+		return
 	} else {
 		ui.setState(StateIdle)
 		fmt.Println("Action lancée :", block.Label)
