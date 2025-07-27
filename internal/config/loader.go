@@ -10,7 +10,7 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
-const defaultTimer = 5000 // in ms
+const defaultTimer = 1000 // in ms
 
 func applyDefaultTimer(actions []types.Action, defaultTimer int) {
 	for i := range actions {

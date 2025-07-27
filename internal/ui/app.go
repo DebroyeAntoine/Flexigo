@@ -7,7 +7,9 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+    "fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+    "fyne.io/fyne/v2/theme"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
@@ -172,9 +174,13 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 	if block.Type == "keyboard" {
 		ui.OpenVirtualKeyboard()
 		return
+	}
+	if block.Type == "char" {
+		fmt.Println("bloub")
 	} else {
 		ui.setState(StateIdle)
 		fmt.Println("Action lancée :", block.Label)
+		return
 	}
 }
 
@@ -280,43 +286,126 @@ func highlightItem(items []*widget.Button, index int) {
 
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows := [][]*widget.Button{}
-	grid := container.NewVBox() // One row per keyboard line
+
+	// Crée l'entrée de texte
+	textInput := widget.NewEntry()
+	textInput.SetText(ui.textBuffer)
+	textInput.Wrapping = fyne.TextWrapWord
+	textInput.MultiLine = true
+	textInput.Disable()
+	textInput.SetMinRowsVisible(10) // Augmenter la hauteur
+
+	backBtn := widget.NewButton("← Retour", func() {
+		if len(ui.navigationStack) > 0 {
+			last := ui.navigationStack[len(ui.navigationStack)-1]
+			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
+			ui.updateView(last)
+			ui.setState(StateIdle)
+		}
+	})
+
+	topSection := container.NewVBox(
+		backBtn,
+		textInput,
+	)
+
+	keyboardContainer := container.NewVBox()
+
+	maxCols := 0
+	for _, actionRow := range rows {
+		if len(actionRow) > maxCols {
+			maxCols = len(actionRow)
+		}
+	}
 
 	for _, actionRow := range rows {
 		btnRow := []*widget.Button{}
-		buttons := []fyne.CanvasObject{}
+		rowContainer := container.NewGridWithColumns(maxCols)
 
-		for _, action := range actionRow {
-			btn := widget.NewButton(action.Label, nil)
-			btn.Importance = widget.MediumImportance
-			ui.buttonToAction[btn] = action
+		for i := 0; i < maxCols; i++ {
+			var action *types.Action
+			if i < len(actionRow) {
+				action = &actionRow[i]
+			}
+
+			var btn *widget.Button
+			if action != nil {
+				btn = widget.NewButton(action.Label, func(a types.Action) func() {
+					return func() {
+						ui.ExecuteKeyboardAction(a, textInput)
+					}
+				}(actionRow[i]))
+				btn.Importance = widget.MediumImportance
+				ui.buttonToAction[btn] = *action
+			} else {
+				btn = widget.NewButton("", nil)
+				btn.Disable()
+			}
+
 			btnRow = append(btnRow, btn)
-			buttons = append(buttons, btn)
+			rowContainer.Add(container.NewVBox(
+				layout.NewSpacer(),
+				btn,
+				layout.NewSpacer(),
+			))
 		}
 
 		buttonRows = append(buttonRows, btnRow)
-
-		row := container.NewGridWithColumns(len(buttons))
-		for _, btn := range buttons {
-			row.Add(btn)
-		}
-
-		grid.Add(row)
+		keyboardContainer.Add(rowContainer)
 	}
 
-	// Optionnel : ajouter zone de texte en haut
-	inputLabel := widget.NewLabel(ui.textBuffer)
-	inputLabel.Alignment = fyne.TextAlignCenter
-	inputLabel.Wrapping = fyne.TextWrapBreak
-	inputLabel.TextStyle.Bold = true
-	inputLabel.TextStyle.Monospace = true
+	// Scrollable layout pour tout rendre accessible (y compris Retour)
+	scrollable := container.NewVScroll(container.NewVBox(
+		topSection,
+		keyboardContainer,
+	))
 
-	final := container.NewBorder(inputLabel, nil, nil, nil, grid)
-
-	ui.rows = buttonRows
-	ui.contentContainer.Objects = []fyne.CanvasObject{final}
+	ui.contentContainer.Objects = []fyne.CanvasObject{scrollable}
 	ui.contentContainer.Refresh()
+	// Ajouter le bouton retour comme première ligne pour qu'il soit scannable
+    backRow := []*widget.Button{backBtn}
+    buttonRows = append([][]*widget.Button{backRow}, buttonRows...)
+
+	ui.buttonToAction[backBtn] = types.Action{Label: "Retour", Type: "back"}
+	ui.rows = buttonRows
 }
+
+//	buttonRows := [][]*widget.Button{}
+//	grid := container.NewVBox() // One row per keyboard line
+//
+//	for _, actionRow := range rows {
+//		btnRow := []*widget.Button{}
+//		buttons := []fyne.CanvasObject{}
+//
+//		for _, action := range actionRow {
+//			btn := widget.NewButton(action.Label, nil)
+//			btn.Importance = widget.MediumImportance
+//			ui.buttonToAction[btn] = action
+//			btnRow = append(btnRow, btn)
+//			buttons = append(buttons, btn)
+//		}
+//
+//		buttonRows = append(buttonRows, btnRow)
+//
+//		row := container.NewGridWithColumns(len(buttons))
+//		for _, btn := range buttons {
+//			row.Add(btn)
+//		}
+//
+//		grid.Add(row)
+//	}
+//
+//	// Optionnel : ajouter zone de texte en haut
+//	inputLabel := widget.NewLabel(ui.textBuffer)
+//	inputLabel.Alignment = fyne.TextAlignCenter
+//	inputLabel.TextStyle = fyne.TextStyle{Bold: true}
+//	ui.contentContainer.Objects = []fyne.CanvasObject{inputLabel, grid}
+//	ui.contentContainer.Refresh()
+//
+//	ui.rows = buttonRows
+//	//ui.contentContainer.Objects = []fyne.CanvasObject{final}
+//	ui.contentContainer.Refresh()
+//}
 
 func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	if len(ui.keyboardLayout) == 0 {
@@ -363,6 +452,7 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 // StartUI show the graphical interface with blocks defined in conf
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
+    myApp.Settings().SetTheme(&customTheme{Theme: theme.DefaultTheme()})
 	myWindow := myApp.NewWindow("Flexigo")
 	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
