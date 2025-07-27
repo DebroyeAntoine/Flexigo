@@ -9,7 +9,6 @@ import (
 	"fyne.io/fyne/v2/container"
     "fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-    "fyne.io/fyne/v2/theme"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
@@ -36,6 +35,7 @@ type UIManager struct {
 	blocks           []types.Action
 	keyboardLayout   []string
 	textBuffer       string
+    textInput        *widget.Entry
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -116,6 +116,24 @@ func (ui *UIManager) OpenVirtualKeyboard() {
 	// ui.setState(StateIdle)
 }
 
+func (ui *UIManager) ExecuteKeyboardAction(action types.Action ) {
+	switch action.Type {
+	case "char":
+		ui.textBuffer += action.Label
+		ui.textInput.SetText(ui.textBuffer)
+	case "delete":
+		if len(ui.textBuffer) > 0 {
+			ui.textBuffer = ui.textBuffer[:len(ui.textBuffer)-1]
+			ui.textInput.SetText(ui.textBuffer)
+		}
+	case "speak":
+		fmt.Println("Lecture du texte:", ui.textBuffer)
+		// Ici vous pouvez ajouter votre logique de synthèse vocale
+	default:
+		ui.ExecuteAction(action)
+	}
+}
+
 func (ui *UIManager) updateView(blocks []types.Action) {
 	var backBtn *widget.Button
 
@@ -176,7 +194,9 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		return
 	}
 	if block.Type == "char" {
-		fmt.Println("bloub")
+        ui.ExecuteKeyboardAction(block)
+        ui.textBuffer = block.Label
+		fmt.Println(ui.textBuffer)
 	} else {
 		ui.setState(StateIdle)
 		fmt.Println("Action lancée :", block.Label)
@@ -288,12 +308,12 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows := [][]*widget.Button{}
 
 	// Crée l'entrée de texte
-	textInput := widget.NewEntry()
-	textInput.SetText(ui.textBuffer)
-	textInput.Wrapping = fyne.TextWrapWord
-	textInput.MultiLine = true
-	textInput.Disable()
-	textInput.SetMinRowsVisible(10) // Augmenter la hauteur
+	ui.textInput = widget.NewEntry()
+	ui.textInput.SetText(ui.textBuffer)
+	ui.textInput.Wrapping = fyne.TextWrapWord
+	ui.textInput.MultiLine = true
+	ui.textInput.Disable()
+	ui.textInput.SetMinRowsVisible(10) // Augmenter la hauteur
 
 	backBtn := widget.NewButton("← Retour", func() {
 		if len(ui.navigationStack) > 0 {
@@ -306,7 +326,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 
 	topSection := container.NewVBox(
 		backBtn,
-		textInput,
+		ui.textInput,
 	)
 
 	keyboardContainer := container.NewVBox()
@@ -332,7 +352,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 			if action != nil {
 				btn = widget.NewButton(action.Label, func(a types.Action) func() {
 					return func() {
-						ui.ExecuteKeyboardAction(a, textInput)
+						ui.ExecuteKeyboardAction(a)
 					}
 				}(actionRow[i]))
 				btn.Importance = widget.MediumImportance
@@ -370,42 +390,6 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	ui.rows = buttonRows
 }
 
-//	buttonRows := [][]*widget.Button{}
-//	grid := container.NewVBox() // One row per keyboard line
-//
-//	for _, actionRow := range rows {
-//		btnRow := []*widget.Button{}
-//		buttons := []fyne.CanvasObject{}
-//
-//		for _, action := range actionRow {
-//			btn := widget.NewButton(action.Label, nil)
-//			btn.Importance = widget.MediumImportance
-//			ui.buttonToAction[btn] = action
-//			btnRow = append(btnRow, btn)
-//			buttons = append(buttons, btn)
-//		}
-//
-//		buttonRows = append(buttonRows, btnRow)
-//
-//		row := container.NewGridWithColumns(len(buttons))
-//		for _, btn := range buttons {
-//			row.Add(btn)
-//		}
-//
-//		grid.Add(row)
-//	}
-//
-//	// Optionnel : ajouter zone de texte en haut
-//	inputLabel := widget.NewLabel(ui.textBuffer)
-//	inputLabel.Alignment = fyne.TextAlignCenter
-//	inputLabel.TextStyle = fyne.TextStyle{Bold: true}
-//	ui.contentContainer.Objects = []fyne.CanvasObject{inputLabel, grid}
-//	ui.contentContainer.Refresh()
-//
-//	ui.rows = buttonRows
-//	//ui.contentContainer.Objects = []fyne.CanvasObject{final}
-//	ui.contentContainer.Refresh()
-//}
 
 func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	if len(ui.keyboardLayout) == 0 {
@@ -452,7 +436,6 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 // StartUI show the graphical interface with blocks defined in conf
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
-    myApp.Settings().SetTheme(&customTheme{Theme: theme.DefaultTheme()})
 	myWindow := myApp.NewWindow("Flexigo")
 	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
