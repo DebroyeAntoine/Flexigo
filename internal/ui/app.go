@@ -36,7 +36,7 @@ type UIManager struct {
 	blocks           []types.Action
 	keyboardLayout   []string
 	textBuffer       string
-    textInput        *widget.Entry
+	textInput        *widget.Entry
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -82,49 +82,26 @@ func (ui *UIManager) setState(state GridState) {
 }
 
 func (ui *UIManager) refreshUI() {
-	//layers := []fyne.CanvasObject{ui.contentContainer}
+	// layers := []fyne.CanvasObject{ui.contentContainer}
 	ui.window.SetContent(container.NewBorder(nil, nil, nil, nil, ui.contentContainer))
 
-	//ui.window.SetContent(container.NewStack(layers...))
+	// ui.window.SetContent(container.NewStack(layers...))
 }
 
 func (ui *UIManager) OpenVirtualKeyboard() {
 	ui.navigationStack = append(ui.navigationStack, ui.blocks)
 	ui.ShowVirtualKeyboardFromLayout()
 	ui.setState(StateIdle)
-	// letters := []types.Action{}
-	//
-	//	for _, c := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ " {
-	//		label := string(c)
-	//		letters = append(letters, types.Action{
-	//			Label: label,
-	//			Type:  "char",
-	//			//Value: label,
-	//		})
-	//	}
-	//
-	//	letters = append(letters, types.Action{
-	//		Label: "Effacer",
-	//		Type:  "delete",
-	//	}, types.Action{
-	//
-	//		Label: "Lire",
-	//		Type:  "speak",
-	//	})
-	//
-	// ui.navigationStack = append(ui.navigationStack, ui.blocks)
-	// ui.updateView(letters)
-	// ui.setState(StateIdle)
 }
 
-func (ui *UIManager) ExecuteKeyboardAction(action types.Action ) {
+func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 	switch action.Type {
 	case "char":
 		ui.textBuffer += action.Label
 		ui.textInput.SetText(ui.textBuffer)
-    case "space":
-        ui.textBuffer += " "
-        ui.textInput.SetText(ui.textBuffer)
+	case "space":
+		ui.textBuffer += " "
+		ui.textInput.SetText(ui.textBuffer)
 	case "delete":
 		if len(ui.textBuffer) > 0 {
 			ui.textBuffer = ui.textBuffer[:len(ui.textBuffer)-1]
@@ -175,6 +152,7 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 	ui.contentContainer.Objects = []fyne.CanvasObject{finalContent}
 	ui.contentContainer.Refresh()
 }
+
 func (ui *UIManager) ExecuteAction(block types.Action) {
 	if block.Type == "back" {
 		if len(ui.navigationStack) > 0 {
@@ -197,8 +175,8 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		return
 	}
 	if block.Type == "char" {
-        ui.ExecuteKeyboardAction(block)
-        ui.textBuffer = block.Label
+		ui.ExecuteKeyboardAction(block)
+		ui.textBuffer = block.Label
 		fmt.Println(ui.textBuffer)
 	} else {
 		ui.setState(StateIdle)
@@ -241,8 +219,7 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 
 func unhighlightlastRow(row []*ColorButton) {
 	for _, btn := range row {
-        btn.BGColor = color.RGBA{R:0, B:255}
-	//	btn.Importance = widget.MediumImportance
+		btn.BGColor = btn.OriginalColor
 		btn.Refresh()
 	}
 }
@@ -251,9 +228,9 @@ func highlightRow(rows [][]*ColorButton, index int) {
 	for i, row := range rows {
 		for _, btn := range row {
 			if i == index {
-                btn.BGColor = color.RGBA{R:0, B:255, G:255}
+				btn.BGColor = color.RGBA{B: 255, A: 255}
 			} else {
-        btn.BGColor = color.RGBA{R:0, B:255}
+				btn.BGColor = btn.OriginalColor
 			}
 			btn.Refresh()
 		}
@@ -293,15 +270,18 @@ func (ui *UIManager) StartItemScan() {
 }
 
 func unhighlightlastItem(btn *ColorButton) {
-	//btn.Importance = widget.MediumImportance
+	btn.BGColor = btn.OriginalColor
+	// btn.Importance = widget.MediumImportance
 	btn.Refresh()
 }
 
 func highlightItem(items []*ColorButton, index int) {
 	for i, item := range items {
 		if i == index {
-			//item.Importance = widget.HighImportance // par exemple
+			item.BGColor = color.RGBA{B: 255, A: 255}
+			// item.Importance = widget.HighImportance // par exemple
 		} else {
+			item.BGColor = item.OriginalColor
 			//@item.Importance = widget.MediumImportance
 		}
 		item.Refresh()
@@ -326,7 +306,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 			ui.updateView(last)
 			ui.setState(StateIdle)
 		}
-    }, color.RGBA{R:255,B:255})
+	}, color.RGBA{R: 255, B: 255, A: 255})
 
 	topSection := container.NewVBox(
 		backBtn,
@@ -359,11 +339,11 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 						ui.ExecuteKeyboardAction(a)
 					}
 				}(actionRow[i]), color.White)
-				//btn.Importance = widget.MediumImportance
+				// btn.Importance = widget.MediumImportance
 				ui.buttonToAction[btn] = *action
 			} else {
 				btn = NewColorButton("", nil, color.Transparent)
-				//btn.Disable()
+				// btn.Disable()
 			}
 
 			btnRow = append(btnRow, btn)
@@ -387,13 +367,12 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	ui.contentContainer.Objects = []fyne.CanvasObject{scrollable}
 	ui.contentContainer.Refresh()
 	// Ajouter le bouton retour comme première ligne pour qu'il soit scannable
-    backRow := []*ColorButton{backBtn}
-    buttonRows = append([][]*ColorButton{backRow}, buttonRows...)
+	backRow := []*ColorButton{backBtn}
+	buttonRows = append([][]*ColorButton{backRow}, buttonRows...)
 
 	ui.buttonToAction[backBtn] = types.Action{Label: "Retour", Type: "back"}
 	ui.rows = buttonRows
 }
-
 
 func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	if len(ui.keyboardLayout) == 0 {
@@ -414,7 +393,7 @@ func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 
 	// Ajoute les boutons spéciaux à la fin
 	rows = append(rows, []types.Action{
-        {Label: "Espace", Type: "space"},
+		{Label: "Espace", Type: "space"},
 		{Label: "Effacer", Type: "delete"},
 		{Label: "Lire", Type: "speak"},
 	})
