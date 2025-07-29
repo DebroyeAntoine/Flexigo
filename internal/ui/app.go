@@ -2,12 +2,13 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-    "fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
@@ -25,13 +26,13 @@ type UIManager struct {
 	window           fyne.Window
 	contentContainer *fyne.Container
 	navigationStack  [][]types.Action
-	rows             [][]*widget.Button
-	selectedRow      []*widget.Button
-	selectedItem     *widget.Button
+	rows             [][]*ColorButton
+	selectedRow      []*ColorButton
+	selectedItem     *ColorButton
 	rowScanDone      chan bool
 	itemScanDone     chan bool
 	timer            int
-	buttonToAction   map[*widget.Button]types.Action
+	buttonToAction   map[*ColorButton]types.Action
 	blocks           []types.Action
 	keyboardLayout   []string
 	textBuffer       string
@@ -121,6 +122,9 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action ) {
 	case "char":
 		ui.textBuffer += action.Label
 		ui.textInput.SetText(ui.textBuffer)
+    case "space":
+        ui.textBuffer += " "
+        ui.textInput.SetText(ui.textBuffer)
 	case "delete":
 		if len(ui.textBuffer) > 0 {
 			ui.textBuffer = ui.textBuffer[:len(ui.textBuffer)-1]
@@ -135,19 +139,18 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action ) {
 }
 
 func (ui *UIManager) updateView(blocks []types.Action) {
-	var backBtn *widget.Button
+	var backBtn *ColorButton
 
 	// Add a back button if the stack is non empty
 	if len(ui.navigationStack) > 0 {
-		backBtn = widget.NewButton("Back", func() {
+		backBtn = NewColorButton("Back", func() {
 			// Show the last stack of blocs
 			last := ui.navigationStack[len(ui.navigationStack)-1]
 			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
 			ui.updateView(last)
 			ui.setState(StateIdle)
-		})
+		}, color.White)
 		backBtn.Resize(fyne.NewSize(300, 300))
-		backBtn.Importance = widget.MediumImportance
 		//	content = append(content, backBtn)
 	}
 
@@ -158,7 +161,7 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 
 	// Add back button to rows if it exists
 	if backBtn != nil {
-		ui.rows = append([][]*widget.Button{{backBtn}}, ui.rows...)
+		ui.rows = append([][]*ColorButton{{backBtn}}, ui.rows...)
 		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
 	}
 
@@ -236,20 +239,21 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	}()
 }
 
-func unhighlightlastRow(row []*widget.Button) {
+func unhighlightlastRow(row []*ColorButton) {
 	for _, btn := range row {
-		btn.Importance = widget.MediumImportance
+        btn.BGColor = color.RGBA{R:0, B:255}
+	//	btn.Importance = widget.MediumImportance
 		btn.Refresh()
 	}
 }
 
-func highlightRow(rows [][]*widget.Button, index int) {
+func highlightRow(rows [][]*ColorButton, index int) {
 	for i, row := range rows {
 		for _, btn := range row {
 			if i == index {
-				btn.Importance = widget.HighImportance
+                btn.BGColor = color.RGBA{R:0, B:255, G:255}
 			} else {
-				btn.Importance = widget.MediumImportance
+        btn.BGColor = color.RGBA{R:0, B:255}
 			}
 			btn.Refresh()
 		}
@@ -288,24 +292,24 @@ func (ui *UIManager) StartItemScan() {
 	}()
 }
 
-func unhighlightlastItem(btn *widget.Button) {
-	btn.Importance = widget.MediumImportance
+func unhighlightlastItem(btn *ColorButton) {
+	//btn.Importance = widget.MediumImportance
 	btn.Refresh()
 }
 
-func highlightItem(items []*widget.Button, index int) {
+func highlightItem(items []*ColorButton, index int) {
 	for i, item := range items {
 		if i == index {
-			item.Importance = widget.HighImportance // par exemple
+			//item.Importance = widget.HighImportance // par exemple
 		} else {
-			item.Importance = widget.MediumImportance
+			//@item.Importance = widget.MediumImportance
 		}
 		item.Refresh()
 	}
 }
 
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
-	buttonRows := [][]*widget.Button{}
+	buttonRows := [][]*ColorButton{}
 
 	// Crée l'entrée de texte
 	ui.textInput = widget.NewEntry()
@@ -315,14 +319,14 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	ui.textInput.Disable()
 	ui.textInput.SetMinRowsVisible(10) // Augmenter la hauteur
 
-	backBtn := widget.NewButton("← Retour", func() {
+	backBtn := NewColorButton("← Retour", func() {
 		if len(ui.navigationStack) > 0 {
 			last := ui.navigationStack[len(ui.navigationStack)-1]
 			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
 			ui.updateView(last)
 			ui.setState(StateIdle)
 		}
-	})
+    }, color.RGBA{R:255,B:255})
 
 	topSection := container.NewVBox(
 		backBtn,
@@ -339,7 +343,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	}
 
 	for _, actionRow := range rows {
-		btnRow := []*widget.Button{}
+		btnRow := []*ColorButton{}
 		rowContainer := container.NewGridWithColumns(maxCols)
 
 		for i := 0; i < maxCols; i++ {
@@ -348,18 +352,18 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 				action = &actionRow[i]
 			}
 
-			var btn *widget.Button
+			var btn *ColorButton
 			if action != nil {
-				btn = widget.NewButton(action.Label, func(a types.Action) func() {
+				btn = NewColorButton(action.Label, func(a types.Action) func() {
 					return func() {
 						ui.ExecuteKeyboardAction(a)
 					}
-				}(actionRow[i]))
-				btn.Importance = widget.MediumImportance
+				}(actionRow[i]), color.White)
+				//btn.Importance = widget.MediumImportance
 				ui.buttonToAction[btn] = *action
 			} else {
-				btn = widget.NewButton("", nil)
-				btn.Disable()
+				btn = NewColorButton("", nil, color.Transparent)
+				//btn.Disable()
 			}
 
 			btnRow = append(btnRow, btn)
@@ -383,8 +387,8 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	ui.contentContainer.Objects = []fyne.CanvasObject{scrollable}
 	ui.contentContainer.Refresh()
 	// Ajouter le bouton retour comme première ligne pour qu'il soit scannable
-    backRow := []*widget.Button{backBtn}
-    buttonRows = append([][]*widget.Button{backRow}, buttonRows...)
+    backRow := []*ColorButton{backBtn}
+    buttonRows = append([][]*ColorButton{backRow}, buttonRows...)
 
 	ui.buttonToAction[backBtn] = types.Action{Label: "Retour", Type: "back"}
 	ui.rows = buttonRows
@@ -410,6 +414,7 @@ func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 
 	// Ajoute les boutons spéciaux à la fin
 	rows = append(rows, []types.Action{
+        {Label: "Espace", Type: "space"},
 		{Label: "Effacer", Type: "delete"},
 		{Label: "Lire", Type: "speak"},
 	})
@@ -439,7 +444,7 @@ func StartUI(cfg *types.Config) error {
 	myWindow := myApp.NewWindow("Flexigo")
 	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
-	myUI.buttonToAction = make(map[*widget.Button]types.Action, 10)
+	myUI.buttonToAction = make(map[*ColorButton]types.Action, 10)
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		if k.Name == fyne.KeyReturn {
 			myUI.HandleEnterKey()
