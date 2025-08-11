@@ -13,8 +13,16 @@ type Action struct {
 	Children []Action          `yaml:"children,omitempty"` // Sous-blocs récursifs
 	Timer    int               `yaml:"timer,omitempty"`
 	Layout   []string          `yaml:"layout,omitempty"`
+	Width    int               `yaml:"width,omitempty"`
+	Height   int               `yaml:"height,omitempty"`
+	Position Position          `yaml:"position,omitempty"`
 }
 
 type Config struct {
 	Blocks []Action `yaml:"blocks"`
+}
+
+type Position struct {
+	Width  int `yaml:"width"`
+	Height int `yaml:"height"`
 }
