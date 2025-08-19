@@ -1,25 +1,127 @@
 blocks:
   - label: "Menu Principal"
     type: container
+    grid_width: 4
+    grid_height: 8
     children:
-      - label: "Allumer la lumière du salon"
-        type: http
-        method: POST
-        url: "http://example.com/api"
-        headers:
-          Authorization: "Bearer ${DUMMY_TOKEN}"
-        body: '{"entity_id": "light.salon"}'
+      - label: "clavier"
+        type: keyboard
+        width: 1
+        height: 1
+        position:
+          x: 0
+          y: 0
+        layout:
+          - "EANRCV"
+          - "JILPHW"
+          - "SUDGK"
+          - "TMBZ"
+          - "OFX"
+          - "QY"
       - label: "Lire Bonjour"
         type: tts
         text: "Bonjour, comment vas-tu ?"
+        width: 1
+        height: 1
+        position:
+          x: 1
+          y: 1
       - label: "Menu Télévision"
         type: container
+        grid_width: 4
+        grid_height: 4
+        width: 2
+        height: 1
+        position:
+          x: 2
+          y: 5
         children:
-          - label: "Allumer la TV"
+          - label: "Allumer la TV2"
+            width: 1
+            height: 1
+            position:
+              x: 0
+              y: 0
             type: http
             method: POST
             url: "http://example.com/api"
             headers:
               Authorization: "Bearer ${DUMMY_TOKEN}"
             body: '{"entity_id": "tv.living_room"}'
-
+          - label: "Allumer la TV"
+            width: 1
+            height: 1
+            position:
+              x: 3
+              y: 2
+            type: http
+            method: POST
+            url: "http://example.com/api"
+            headers:
+              Authorization: "Bearer ${DUMMY_TOKEN}"
+            body: '{"entity_id": "tv.living_room"}'
+      #      - label: "Allumer la lumière du salon"
+      #        type: http
+      #        method: POST
+      #        url: "http://example.com/api"
+      #        headers:
+      #          Authorization: "Bearer ${DUMMY_TOKEN}"
+      #        body: '{"entity_id": "light.salon"}'
+      #      - label: "Lire Bonjour"
+      #        type: tts
+      #        text: "Bonjour, comment vas-tu ?"
+      #      - label: "Menu Télévision"
+      #        type: container
+      #        children:
+      #          - label: "Allumer la TV"
+      #            type: http
+      #            method: POST
+      #            url: "http://example.com/api"
+      #            headers:
+      #              Authorization: "Bearer ${DUMMY_TOKEN}"
+      #            body: '{"entity_id": "tv.living_room"}'
+      #
+      #            #// systeme de retry
+      #            #// body + header http ooptionnels
+      #            #// clavier configurable
+      #      - label: "Allumer la lumière du salon"
+      #        type: http
+      #        method: POST
+      #        url: "http://example.com/api"
+      #        headers:
+      #          Authorization: "Bearer ${DUMMY_TOKEN}"
+      #        body: '{"entity_id": "light.salon"}'
+      #      - label: "Lire Bonjour"
+      #        type: tts
+      #        text: "Bonjour, comment vas-tu ?"
+      #      - label: "Menu Télévision"
+      #        type: container
+      #        children:
+      #          - label: "Allumer la TV"
+      #            type: http
+      #            method: POST
+      #            url: "http://example.com/api"
+      #            headers:
+      #              Authorization: "Bearer ${DUMMY_TOKEN}"
+      #            body: '{"entity_id": "tv.living_room"}'
+      #
+      #      - label: "Allumer la lumière du salon"
+      #        type: http
+      #        method: POST
+      #        url: "http://example.com/api"
+      #        headers:
+      #          Authorization: "Bearer ${DUMMY_TOKEN}"
+      #        body: '{"entity_id": "light.salon"}'
+      #      - label: "Lire Bonjour"
+      #        type: tts
+      #        text: "Bonjour, comment vas-tu ?"
+      #      - label: "Menu Télévision"
+      #        type: container
+      #        children:
+      #          - label: "Allumer la TV"
+      #            type: http
+      #            method: POST
+      #            url: "http://example.com/api"
+      #            headers:
+      #              Authorization: "Bearer ${DUMMY_TOKEN}"
+      #            body: '{"entity_id": "tv.living_room"}'

@@ -25,7 +25,8 @@ type UIManager struct {
 	state            GridState
 	window           fyne.Window
 	contentContainer *fyne.Container
-	navigationStack  [][]types.Action
+	navigationStack  []types.Action
+	currentContainer types.Action
 	rows             [][]*ColorButton
 	selectedRow      []*ColorButton
 	selectedItem     *ColorButton
@@ -89,7 +90,7 @@ func (ui *UIManager) refreshUI() {
 }
 
 func (ui *UIManager) OpenVirtualKeyboard() {
-	ui.navigationStack = append(ui.navigationStack, ui.blocks)
+	ui.navigationStack = append(ui.navigationStack, ui.currentContainer)
 	ui.ShowVirtualKeyboardFromLayout()
 	ui.setState(StateIdle)
 }
@@ -109,14 +110,14 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 		}
 	case "speak":
 		fmt.Println("Lecture du texte:", ui.textBuffer)
-		// Ici vous pouvez ajouter votre logique de synthèse vocale
 	default:
 		ui.ExecuteAction(action)
 	}
 }
 
-func (ui *UIManager) updateView(blocks []types.Action) {
+func (ui *UIManager) updateView(containerAction types.Action) {
 	var backBtn *ColorButton
+	ui.currentContainer = containerAction
 
 	// Add a back button if the stack is non empty
 	if len(ui.navigationStack) > 0 {
@@ -133,8 +134,8 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 
 	// Render blocks (common logic)
 	var firstValue fyne.CanvasObject
-	ui.blocks = blocks
-	firstValue, ui.rows = ui.renderBlocks(blocks)
+	ui.blocks = containerAction.Children
+	firstValue, ui.rows = ui.renderBlocks(containerAction)
 
 	// Add back button to rows if it exists
 	if backBtn != nil {
@@ -142,13 +143,20 @@ func (ui *UIManager) updateView(blocks []types.Action) {
 		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
 	}
 
+	if backBtn != nil {
+		ui.rows = append([][]*ColorButton{{backBtn}}, ui.rows...)
+		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
+	}
+
 	var finalContent fyne.CanvasObject
 	if backBtn != nil {
-		finalContent = container.NewBorder(backBtn, nil, nil, nil, firstValue)
+		finalContent = container.NewVBox(
+			container.NewHBox(backBtn),
+			firstValue,
+		)
 	} else {
 		finalContent = firstValue
 	}
-
 	ui.contentContainer.Objects = []fyne.CanvasObject{finalContent}
 	ui.contentContainer.Refresh()
 }
@@ -166,8 +174,8 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 
 	if block.Type == "container" {
 		ui.timer = block.Timer
-		ui.navigationStack = append(ui.navigationStack, ui.blocks)
-		ui.updateView(block.Children)
+		ui.navigationStack = append(ui.navigationStack, ui.currentContainer)
+		ui.updateView(block)
 		ui.setState(StateIdle)
 	}
 	if block.Type == "keyboard" {
@@ -438,7 +446,7 @@ func StartUI(cfg *types.Config) error {
 	myUI.timer = cfg.Blocks[0].Timer
 
 	myUI.LoadKeyboard(&cfg.Blocks)
-	myUI.updateView(cfg.Blocks[0].Children)
+	myUI.updateView(cfg.Blocks[0])
 	myUI.refreshUI()
 
 	myWindow.SetContent(container.NewStack(

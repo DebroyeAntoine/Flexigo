@@ -20,66 +20,62 @@ func (ui *UIManager) createBorderedButton(
 ) (fyne.CanvasObject, *ColorButton) {
 	btn := NewColorButton(label, onTapped, bgColor)
 
-	// Créer la bordure avec un rectangle
 	borderWidth := float32(2)
 	border := canvas.NewRectangle(color.White)
 	border.StrokeColor = color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	border.StrokeWidth = borderWidth
-
-	// Utiliser un container Border pour un positionnement automatique
-	//	padding := float32(4) // padding interne
-
-	// Créer un container avec padding
 	paddedBtn := container.NewPadded(btn)
 
-	// Stack le rectangle de bordure avec le bouton paddé
 	borderedContainer := container.NewStack(border, paddedBtn)
 	borderedContainer.Resize(fyne.NewSize(width, height))
 
 	return borderedContainer, btn
 }
 
-// Version mise à jour de renderBlocks
-func (ui *UIManager) renderBlocks(blocks []types.Action) (fyne.CanvasObject, [][]*ColorButton) {
-	const buttonsPerRow = 3
-	grid := container.NewGridWithColumns(buttonsPerRow)
-	rows := [][]*ColorButton{}
-	currentRow := []*ColorButton{}
+func (ui *UIManager) renderBlocks(containerAction types.Action) (fyne.CanvasObject, [][]*ColorButton) {
+	items := []GridItem{}
+	objects := []fyne.CanvasObject{}
+	rows := make([][]*ColorButton, containerAction.GridHeight)
 
-	// Obtenir la taille de la fenêtre
-	windowSize := ui.window.Canvas().Size()
-	buttonSpacing := float32(40) // Espacement entre boutons
+	for _, block := range containerAction.Children {
+		if block.Width == 0 {
+			block.Width = 1
+		}
+		if block.Height == 0 {
+			block.Height = 1
+		}
 
-	buttonWidth := (windowSize.Width - buttonSpacing*(buttonsPerRow+1)) / buttonsPerRow
+		btn := NewColorButton(block.Label, func(b types.Action) func() {
+			return func() { ui.ExecuteAction(b) }
+		}(block), color.RGBA{R: 255, G: 0, B: 0, A: 255})
 
-	buttonHeight := windowSize.Height / float32(len(blocks)/buttonsPerRow+1)
-
-	for i, block := range blocks {
-		// Utiliser la méthode de bordure choisie
-		borderedContainer, btn := ui.createBorderedButton(
+		borderedContainer, _ := ui.createBorderedButton(
 			block.Label,
 			func(b types.Action) func() {
 				return func() { ui.ExecuteAction(b) }
 			}(block),
-			buttonWidth-30,
-			buttonHeight-30,
+			0, 0, // tailles calculées par le layout, donc 0 ici
 			color.RGBA{R: 255, G: 0, B: 0, A: 255},
 		)
 
+		item := GridItem{
+			Object:   borderedContainer,
+			Width:    block.Width,
+			Height:   block.Height,
+			Position: block.Position,
+		}
+
+		items = append(items, item)
+		objects = append(objects, borderedContainer)
 		ui.buttonToAction[btn] = block
 
-		grid.Add(borderedContainer)
-		currentRow = append(currentRow, btn)
-
-		if (i+1)%buttonsPerRow == 0 {
-			rows = append(rows, currentRow)
-			currentRow = []*ColorButton{}
+		y := block.Position.Y
+		if y >= 0 && y < len(rows) {
+			rows[y] = append(rows[y], btn)
 		}
 	}
 
-	if len(currentRow) > 0 {
-		rows = append(rows, currentRow)
-	}
+	gridContainer := NewContainerFromConfig(containerAction.GridWidth, containerAction.GridHeight, items, objects)
 
-	return grid, rows
+	return gridContainer, rows
 }
