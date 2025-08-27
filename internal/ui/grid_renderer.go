@@ -45,11 +45,11 @@ func (ui *UIManager) renderBlocks(containerAction types.Action) (fyne.CanvasObje
 			block.Height = 1
 		}
 
-		btn := NewColorButton(block.Label, func(b types.Action) func() {
-			return func() { ui.ExecuteAction(b) }
-		}(block), color.RGBA{R: 255, G: 0, B: 0, A: 255})
+		//	btn := NewColorButton(block.Label, func(b types.Action) func() {
+		//		return func() { ui.ExecuteAction(b) }
+		//	}(block), color.RGBA{R: 255, G: 0, B: 0, A: 255})
 
-		borderedContainer, _ := ui.createBorderedButton(
+		borderedContainer, btn := ui.createBorderedButton(
 			block.Label,
 			func(b types.Action) func() {
 				return func() { ui.ExecuteAction(b) }
