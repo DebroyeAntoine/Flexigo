@@ -434,7 +434,11 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
-	orchestration := orchestration.Orchestration{TTS: tts.NewGoogleTTS(), Cfg: cfg, Player: player.NewOtoPlayer()}
+	googleTTS, err := tts.NewTTSProvider("google")
+	if err != nil {
+		return err
+	}
+	orchestration := orchestration.Orchestration{TTS: googleTTS, Cfg: cfg, Player: player.NewOtoPlayer()}
 	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
 	myUI.orchestration = &orchestration
