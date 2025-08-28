@@ -10,6 +10,8 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
+	"github.com/DebroyeAntoine/flexigo/internal/tts"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
@@ -38,6 +40,7 @@ type UIManager struct {
 	keyboardLayout   []string
 	textBuffer       string
 	textInput        *widget.Entry
+	orchestration    *orchestration.Orchestration
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -110,6 +113,7 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 		}
 	case "speak":
 		fmt.Println("Lecture du texte:", ui.textBuffer)
+		ui.orchestration.Say(ui.textBuffer)
 	default:
 		ui.ExecuteAction(action)
 	}
@@ -429,8 +433,10 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
+	orchestration := orchestration.Orchestration{TTS: tts.NewGoogleTTS(), Cfg: cfg}
 	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
+	myUI.orchestration = &orchestration
 	myUI.buttonToAction = make(map[*ColorButton]types.Action, 10)
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		if k.Name == fyne.KeyReturn {

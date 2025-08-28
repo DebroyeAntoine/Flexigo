@@ -2,6 +2,7 @@ package tts
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -17,16 +18,16 @@ func NewGoogleTTS() TTSProvider {
 	return GoogleTTS{httpClient: &http.Client{Timeout: 15 * time.Second}}
 }
 
-func (gtts GoogleTTS) Speak(text string) error {
+func (gtts GoogleTTS) Synthesize(text string) ([]byte, error) {
 	fullURL := baseUrl + url.QueryEscape(text)
 	resp, err := gtts.httpClient.Get(fullURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("not a OK result")
+		return nil, fmt.Errorf("not a OK result")
 	}
 
-	return nil
+	return io.ReadAll(resp.Body)
 }

@@ -3,7 +3,7 @@ package tts
 import "fmt"
 
 type TTSProvider interface {
-	Speak(text string) error
+	Synthesize(text string) ([]byte, error)
 }
 
 func NewTTSProvider(provider string) (TTSProvider, error) {
