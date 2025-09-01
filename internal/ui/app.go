@@ -11,7 +11,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
-	"github.com/DebroyeAntoine/flexigo/internal/player"
 	"github.com/DebroyeAntoine/flexigo/internal/tts"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
@@ -434,11 +433,11 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
-	googleTTS, err := tts.NewTTSProvider("google")
+	localTTS, err := tts.NewTTSProvider("local")
 	if err != nil {
 		return err
 	}
-	orchestration := orchestration.Orchestration{TTS: googleTTS, Cfg: cfg, Player: player.NewOtoPlayer()}
+	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg}
 	myWindow.SetFullScreen(true)
 	myUI := NewUIManager(myWindow)
 	myUI.orchestration = &orchestration
@@ -463,7 +462,6 @@ func StartUI(cfg *types.Config) error {
 	myWindow.SetContent(container.NewStack(
 		myUI.contentContainer, // normal grid
 	))
-	fmt.Printf("%T\n", myUI.window.Canvas())
 
 	myWindow.ShowAndRun()
 	return nil
