@@ -1,72 +1,88 @@
 # Binaire Go
 /bin/
 /build/
-
-/# Binaire spécifique à l'OS
+# Binaire spécifique à l'OS
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
 # Cache de Go
 *.out
 *.test
 *.cover
-
 # Fichiers de dépendances de Go
 /vendor/
-
 # Fichiers de configuration de l'éditeur
 .idea/
 .vscode/
-
 # Fichiers de l'éditeur de texte
 *~
 # Exclure tous les fichiers de sauvegarde de l'éditeur
 *.bak
 *.swp
-
 # Fichiers de log
 *.log
-
 # Fichiers de l'environnement
 .env
-
 # Cache de go modules (pour Go 1.11+)
 .gomodcache/
-
 # Fichiers de compilateur Go
 *.o
 *.a
 *.so
-
 # Fichiers de test
 *.test
-
 # Coverage reports
 *.out
-
 # Dump de la pile (si Go panic)
 *.stackdump
-
 # Fichiers de configuration des outils de testing (comme l'outil de couverture de Go)
 *.cov
 
-
-### react ###
+### React ###
 .DS_*
 *.log
 logs
 **/*.backup.*
 **/*.back.*
-
 node_modules
 bower_components
-
 *.sublime*
-
 psd
 thumb
 sketch
 
+### Rust ###
+# Répertoire de build généré par Cargo
+**/target/
+# Fichiers de lock des dépendances (à inclure seulement pour les applications, pas les bibliothèques)
+Cargo.lock
+# Fichiers de backup générés par rustfmt
+**/*.rs.bk
+# Fichiers LLDB
+**/*.dSYM/
+# Artefacts de compilation additionnels
+**/*.pdb
+# Répertoire de sortie de wasm-pack
+**/pkg/
+# Fichiers générés par wasm-bindgen
+**/www/dist/
+# Cache local de Rust
+.cargo-ok
+# Fichiers temporaires de l'éditeur pour Rust
+*.rs~
+# Répertoire des dépendances locales (si utilisé)
+**/deps/
+# Fichiers de configuration Rust spécifiques
+.rustfmt_cache/
+# Profiling data
+*.profraw
+*.profdata
+# Fichiers de flamegraph
+flamegraph.svg
+perf.data*
+# Répertoire de documentation généré
+**/doc/
+# Fichiers de test de benchmark
+bench_output/
