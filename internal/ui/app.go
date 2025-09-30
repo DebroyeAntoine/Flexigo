@@ -129,21 +129,27 @@ func (ui *UIManager) OpenVirtualKeyboard() {
 }
 
 func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
+	fmt.Println("coucou")
 	switch action.Type {
 	case "char":
 		ui.textBuffer += action.Label
 		ui.textInput.SetText(ui.textBuffer)
+
 	case "space":
 		ui.textBuffer += " "
 		ui.textInput.SetText(ui.textBuffer)
+
 	case "delete":
 		if len(ui.textBuffer) > 0 {
-			ui.textBuffer = ui.textBuffer[:len(ui.textBuffer)-1]
+			runes := []rune(ui.textBuffer)
+			ui.textBuffer = string(runes[:len(runes)-1])
 			ui.textInput.SetText(ui.textBuffer)
 		}
+
 	case "speak":
 		fmt.Println("Lecture du texte:", ui.textBuffer)
 		ui.orchestration.Say(ui.textBuffer)
+
 	default:
 		ui.ExecuteAction(action)
 	}
@@ -171,11 +177,6 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 	firstValue, ui.rows = ui.renderBlocks(containerAction)
 
 	// Add back button to rows if it exists
-	if backBtn != nil {
-		ui.rows = append([][]*ColorButton{{backBtn}}, ui.rows...)
-		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
-	}
-
 	if backBtn != nil {
 		ui.rows = append([][]*ColorButton{{backBtn}}, ui.rows...)
 		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
@@ -215,10 +216,10 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		ui.OpenVirtualKeyboard()
 		return
 	}
-	if block.Type == "char" {
+	if block.Type == "char" || block.Type == "speak" {
 		ui.ExecuteKeyboardAction(block)
-		ui.textBuffer = block.Label
-		fmt.Println(ui.textBuffer)
+		//	ui.textBuffer = block.Label
+		//	fmt.Println(ui.textBuffer)
 	} else {
 		ui.setState(StateIdle)
 		fmt.Println("Action lancée :", block.Label)
@@ -497,4 +498,3 @@ func StartUI(cfg *types.Config) error {
 	myWindow.ShowAndRun()
 	return nil
 }
-
