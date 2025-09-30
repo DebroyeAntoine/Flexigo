@@ -7,8 +7,10 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	//"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
 	"github.com/DebroyeAntoine/flexigo/internal/tts"
@@ -41,6 +43,37 @@ type UIManager struct {
 	textBuffer       string
 	textInput        *widget.Entry
 	orchestration    *orchestration.Orchestration
+}
+
+// Thème personnalisé pour contrôler les couleurs
+type customTheme struct {
+	fyne.Theme
+}
+
+func (t *customTheme) Size(name fyne.ThemeSizeName) float32 {
+	switch name {
+	case theme.SizeNameText:
+		return 78 // Taille du texte normal (votre Entry)
+	case theme.SizeNameHeadingText:
+		return 64 // Taille des titres
+	case theme.SizeNameSubHeadingText:
+		return 56 // Taille des sous-titres
+	case theme.SizeNameCaptionText:
+		return 32 // Taille des petits textes
+	default:
+		return t.Theme.Size(name)
+	}
+}
+
+func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	switch name {
+	case theme.ColorNameInputBackground:
+		return color.White
+	case theme.ColorNameForeground:
+		return color.Black
+	default:
+		return t.Theme.Color(name, variant)
+	}
 }
 
 func NewUIManager(window fyne.Window) *UIManager {
@@ -86,10 +119,7 @@ func (ui *UIManager) setState(state GridState) {
 }
 
 func (ui *UIManager) refreshUI() {
-	// layers := []fyne.CanvasObject{ui.contentContainer}
 	ui.window.SetContent(container.NewBorder(nil, nil, nil, nil, ui.contentContainer))
-
-	// ui.window.SetContent(container.NewStack(layers...))
 }
 
 func (ui *UIManager) OpenVirtualKeyboard() {
@@ -133,7 +163,6 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 			ui.setState(StateIdle)
 		}, color.White)
 		backBtn.Resize(fyne.NewSize(300, 300))
-		//	content = append(content, backBtn)
 	}
 
 	// Render blocks (common logic)
@@ -270,7 +299,7 @@ func (ui *UIManager) StartItemScan() {
 					ui.itemScanDone <- true
 					return
 				}
-				itemToHighlight := currentCol // Capturer la valeur actuelle
+				itemToHighlight := currentCol
 				fyne.Do(func() {
 					highlightItem(ui.selectedRow, itemToHighlight)
 				})
@@ -283,7 +312,6 @@ func (ui *UIManager) StartItemScan() {
 
 func unhighlightlastItem(btn *ColorButton) {
 	btn.BGColor = btn.OriginalColor
-	// btn.Importance = widget.MediumImportance
 	btn.Refresh()
 }
 
@@ -291,10 +319,8 @@ func highlightItem(items []*ColorButton, index int) {
 	for i, item := range items {
 		if i == index {
 			item.BGColor = color.RGBA{B: 255, A: 255}
-			// item.Importance = widget.HighImportance // par exemple
 		} else {
 			item.BGColor = item.OriginalColor
-			//@item.Importance = widget.MediumImportance
 		}
 		item.Refresh()
 	}
@@ -303,13 +329,15 @@ func highlightItem(items []*ColorButton, index int) {
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows := [][]*ColorButton{}
 
-	// Crée l'entrée de texte
-	ui.textInput = widget.NewEntry()
+	// Crée l'entrée de texte avec le widget Entry natif
+	ui.textInput = widget.NewMultiLineEntry()
 	ui.textInput.SetText(ui.textBuffer)
+	ui.textInput.OnChanged = func(t string) {
+		ui.textBuffer = t
+	}
 	ui.textInput.Wrapping = fyne.TextWrapWord
-	ui.textInput.MultiLine = true
-	ui.textInput.Disable()
-	ui.textInput.SetMinRowsVisible(10) // Augmenter la hauteur
+	ui.textInput.SetMinRowsVisible(3)
+	ui.textInput.TextStyle = fyne.TextStyle{}
 
 	backBtn := NewColorButton("← Retour", func() {
 		if len(ui.navigationStack) > 0 {
@@ -350,12 +378,10 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 					return func() {
 						ui.ExecuteKeyboardAction(a)
 					}
-				}(actionRow[i]), color.White)
-				// btn.Importance = widget.MediumImportance
+				}(actionRow[i]), color.RGBA{R: 255, A: 255})
 				ui.buttonToAction[btn] = *action
 			} else {
 				btn = NewColorButton("", nil, color.Transparent)
-				// btn.Disable()
 			}
 
 			btnRow = append(btnRow, btn)
@@ -370,7 +396,6 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 		keyboardContainer.Add(rowContainer)
 	}
 
-	// Scrollable layout pour tout rendre accessible (y compris Retour)
 	scrollable := container.NewVScroll(container.NewVBox(
 		topSection,
 		keyboardContainer,
@@ -378,6 +403,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 
 	ui.contentContainer.Objects = []fyne.CanvasObject{scrollable}
 	ui.contentContainer.Refresh()
+
 	// Ajouter le bouton retour comme première ligne pour qu'il soit scannable
 	backRow := []*ColorButton{backBtn}
 	buttonRows = append([][]*ColorButton{backRow}, buttonRows...)
@@ -410,7 +436,6 @@ func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 		{Label: "Lire", Type: "speak"},
 	})
 
-	// Affiche ce clavier
 	ui.ShowCustomActionGrid(rows)
 }
 
@@ -433,6 +458,12 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
+
+	// Applique le thème personnalisé
+	myApp.Settings().SetTheme(&customTheme{
+		Theme: myApp.Settings().Theme(),
+	})
+
 	localTTS, err := tts.NewTTSProvider("local")
 	if err != nil {
 		return err
@@ -460,9 +491,10 @@ func StartUI(cfg *types.Config) error {
 	myUI.refreshUI()
 
 	myWindow.SetContent(container.NewStack(
-		myUI.contentContainer, // normal grid
+		myUI.contentContainer,
 	))
 
 	myWindow.ShowAndRun()
 	return nil
 }
+
