@@ -156,42 +156,41 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 }
 
 func (ui *UIManager) updateView(containerAction types.Action) {
-	var backBtn *ColorButton
 	ui.currentContainer = containerAction
-
-	// Add a back button if the stack is non empty
-	if len(ui.navigationStack) > 0 {
-		backBtn = NewColorButton("Back", func() {
-			// Show the last stack of blocs
-			last := ui.navigationStack[len(ui.navigationStack)-1]
-			ui.navigationStack = ui.navigationStack[:len(ui.navigationStack)-1]
-			ui.updateView(last)
-			ui.setState(StateIdle)
-		}, color.White)
-		backBtn.Resize(fyne.NewSize(300, 300))
-	}
-
-	// Render blocks (common logic)
-	var firstValue fyne.CanvasObject
 	ui.blocks = containerAction.Children
-	firstValue, ui.rows = ui.renderBlocks(containerAction)
 
-	// Add back button to rows if it exists
-	if backBtn != nil {
-		ui.rows = append([][]*ColorButton{{backBtn}}, ui.rows...)
-		ui.buttonToAction[backBtn] = types.Action{Label: "Back", Type: "back"}
-	}
+	// if this is not the root container add a back button
+	if len(ui.navigationStack) > 0 {
+		backAction := types.Action{
+			Label:    "← Retour",
+			Type:     "back",
+			Width:    containerAction.GridWidth,
+			Height:   1,
+			Position: types.Position{X: 0, Y: 0},
+		}
 
-	var finalContent fyne.CanvasObject
-	if backBtn != nil {
-		finalContent = container.NewVBox(
-			container.NewHBox(backBtn),
-			firstValue,
-		)
+		// Do a shift +1 on all other blocks below
+		adjustedBlocks := []types.Action{backAction}
+		for _, block := range containerAction.Children {
+			adjustedBlock := block
+			adjustedBlock.Position.Y += 1
+			adjustedBlocks = append(adjustedBlocks, adjustedBlock)
+		}
+
+		// Change the container by adding one extra row
+		adjustedContainer := containerAction
+		adjustedContainer.Children = adjustedBlocks
+		adjustedContainer.GridHeight += 1
+
+		firstValue, rows := ui.renderBlocks(adjustedContainer)
+		ui.rows = rows
+		ui.contentContainer.Objects = []fyne.CanvasObject{firstValue}
 	} else {
-		finalContent = firstValue
+		firstValue, rows := ui.renderBlocks(containerAction)
+		ui.rows = rows
+		ui.contentContainer.Objects = []fyne.CanvasObject{firstValue}
 	}
-	ui.contentContainer.Objects = []fyne.CanvasObject{finalContent}
+
 	ui.contentContainer.Refresh()
 }
 
