@@ -21,6 +21,7 @@ type GridState int
 
 const (
 	StateIdle GridState = iota
+	StateGroup
 	StateRows
 	StateItems
 )
@@ -32,9 +33,12 @@ type UIManager struct {
 	navigationStack  []types.Action
 	currentContainer types.Action
 	rows             [][]*ColorButton
+	groups           [][][]*ColorButton
 	selectedRow      []*ColorButton
+	selectedGroup    [][]*ColorButton
 	selectedItem     *ColorButton
 	rowScanDone      chan bool
+	groupScanDone    chan bool
 	itemScanDone     chan bool
 	timer            int
 	buttonToAction   map[*ColorButton]types.Action
@@ -87,7 +91,13 @@ func NewUIManager(window fyne.Window) *UIManager {
 func (ui *UIManager) HandleEnterKey() {
 	switch ui.state {
 	case StateIdle:
+		ui.state = StateGroup
+		ui.groupScanDone = make(chan bool)
+		ui.StartGroupScan()
+	case StateGroup:
+		ui.groupScanDone <- true
 		ui.state = StateRows
+		ui.rows = ui.selectedGroup
 		ui.rowScanDone = make(chan bool)
 		ui.StartRowsScan(func(t int) { fmt.Println(t) })
 	case StateRows:
@@ -182,12 +192,14 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 		adjustedContainer.Children = adjustedBlocks
 		adjustedContainer.GridHeight += 1
 
-		firstValue, rows := ui.renderBlocks(adjustedContainer)
+		firstValue, rows, groups := ui.renderBlocks(adjustedContainer)
 		ui.rows = rows
+		ui.groups = groups
 		ui.contentContainer.Objects = []fyne.CanvasObject{firstValue}
 	} else {
-		firstValue, rows := ui.renderBlocks(containerAction)
+		firstValue, rows, groups := ui.renderBlocks(containerAction)
 		ui.rows = rows
+		ui.groups = groups
 		ui.contentContainer.Objects = []fyne.CanvasObject{firstValue}
 	}
 
@@ -223,6 +235,65 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		ui.setState(StateIdle)
 		fmt.Println("Action lancée :", block.Label)
 		return
+	}
+}
+
+func (ui *UIManager) StartGroupScan() {
+	fmt.Println(ui.groups)
+	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
+
+	currentGroup := 0
+
+	go func() {
+		for {
+			select {
+			case <-ui.groupScanDone:
+				return
+			case <-ticker.C:
+				fmt.Println(currentGroup)
+				if currentGroup >= len(ui.groups) {
+					ticker.Stop()
+					ui.selectedGroup = nil
+					fyne.Do(func() {
+						unhighlightlastGroup(ui.groups[len(ui.groups)-1])
+					})
+					ui.state = StateIdle
+					ui.groupScanDone <- true
+					return
+				}
+				groupToHighlight := currentGroup
+				fyne.Do(func() {
+					highlightGroup(ui.groups, groupToHighlight)
+				})
+				ui.selectedGroup = ui.groups[currentGroup]
+				currentGroup++
+			}
+		}
+	}()
+}
+
+func unhighlightlastGroup(group [][]*ColorButton) {
+	for _, row := range group {
+		for _, btn := range row {
+			btn.BGColor = btn.OriginalColor
+			btn.Refresh()
+		}
+	}
+}
+
+func highlightGroup(group [][][]*ColorButton, index int) {
+	for i, rows := range group {
+		for _, row := range rows {
+			for _, btn := range row {
+				if i == index {
+					fmt.Println(btn.BGColor)
+					btn.BGColor = color.RGBA{B: 255, A: 255}
+				} else {
+					btn.BGColor = btn.OriginalColor
+				}
+				btn.Refresh()
+			}
+		}
 	}
 }
 

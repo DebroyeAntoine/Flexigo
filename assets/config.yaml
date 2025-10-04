@@ -20,9 +20,10 @@ blocks:
           - "QY"
       - label: "Lire Bonjour"
         type: tts
+        group_membership: 1
         text: "Bonjour, comment vas-tu ?"
         width: 1
-        height: 1
+        height: 2
         position:
           x: 1
           y: 1

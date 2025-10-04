@@ -40,6 +40,22 @@ func UniformizeTimer(cfg *types.Config) {
 	}
 }
 
+func ApplyDefaultGroup(actions []types.Action, defaultGroup int) {
+	for i := range actions {
+		if actions[i].GroupMembership == nil {
+			actions[i].GroupMembership = &defaultGroup
+		}
+	}
+}
+
+func CreateDefaultGroup(cfg *types.Config) {
+	for i := range cfg.Blocks {
+		if cfg.Blocks[i].Type == "container" {
+			ApplyDefaultGroup(cfg.Blocks[i].Children, 0)
+		}
+	}
+}
+
 func LoadConfig(path string) (*types.Config, error) {
 	_ = godotenv.Load(".env")
 
@@ -52,6 +68,8 @@ func LoadConfig(path string) (*types.Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+
+	CreateDefaultGroup(&cfg)
 
 	UniformizeTimer(&cfg)
 
