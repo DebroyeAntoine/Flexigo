@@ -1,16 +1,28 @@
 blocks:
   - label: "Menu Principal"
     type: container
+    timer: 1000
     grid_width: 4
     grid_height: 8
     children:
-      - label: "clavier"
+      # Clavier avec couleur personnalisée verte
+      - label: "Clavier"
         type: keyboard
         width: 1
         height: 1
         position:
           x: 0
           y: 0
+        color:
+          r: 0
+          g: 200
+          b: 0
+          a: 255
+        highlight_color:
+          r: 100
+          g: 0
+          b: 100
+          a: 255
         layout:
           - "EANRCV"
           - "JILPHW"

@@ -8,25 +8,48 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// ColorButton est un bouton à fond coloré.
+// ColorButton est un bouton à fond coloré avec support du highlight.
 type ColorButton struct {
 	widget.BaseWidget
-	Text          string
-	OnTapped      func()
-	BGColor       color.Color
-	OriginalColor color.Color
+	Text           string
+	OnTapped       func()
+	BGColor        color.Color
+	OriginalColor  color.Color
+	HighlightColor color.Color // Couleur lors du scan/highlight
+	IsHighlighted  bool        // État actuel du highlight
 }
 
 // NewColorButton crée un ColorButton avec un label, un callback et une couleur de fond.
 func NewColorButton(label string, onTapped func(), bgColor color.Color) *ColorButton {
 	b := &ColorButton{
-		Text:          label,
-		OnTapped:      onTapped,
-		BGColor:       bgColor,
-		OriginalColor: bgColor,
+		Text:           label,
+		OnTapped:       onTapped,
+		BGColor:        bgColor,
+		OriginalColor:  bgColor,
+		HighlightColor: color.RGBA{R: 0, G: 0, B: 255, A: 255}, // Bleu par défaut
+		IsHighlighted:  false,
 	}
 	b.ExtendBaseWidget(b)
 	return b
+}
+
+// Highlight met le bouton en surbrillance
+func (b *ColorButton) Highlight() {
+	b.IsHighlighted = true
+	b.BGColor = b.HighlightColor
+	b.Refresh()
+}
+
+// Unhighlight retire la surbrillance
+func (b *ColorButton) Unhighlight() {
+	b.IsHighlighted = false
+	b.BGColor = b.OriginalColor
+	b.Refresh()
+}
+
+// SetHighlightColor définit la couleur de surbrillance
+func (b *ColorButton) SetHighlightColor(c color.Color) {
+	b.HighlightColor = c
 }
 
 // CreateRenderer définit comment dessiner notre bouton personnalisé.
@@ -54,7 +77,7 @@ func (b *ColorButton) Tapped(_ *fyne.PointEvent) {
 	}
 }
 
-// TappedSecondary (clic droit) n’est pas utilisé ici.
+// TappedSecondary (clic droit) n'est pas utilisé ici.
 func (b *ColorButton) TappedSecondary(_ *fyne.PointEvent) {}
 
 // colorButtonRenderer gère le layout, le rafraîchissement et le sizing.

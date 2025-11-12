@@ -5,12 +5,20 @@ import (
 	"image/color"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
-	//"fyne.io/fyne/v2/widget"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
+
+// convertColor convertit une types.Color en color.RGBA
+func convertColor(c *types.Color) color.RGBA {
+	if c == nil {
+		// Fallback sur rouge par défaut
+		return color.RGBA{R: 255, G: 0, B: 0, A: 255}
+	}
+	return color.RGBA{R: c.R, G: c.G, B: c.B, A: c.A}
+}
 
 func (ui *UIManager) createBorderedButton(
 	label string,
@@ -48,14 +56,25 @@ func (ui *UIManager) renderBlocks(containerAction types.Action) (fyne.CanvasObje
 			block.Height = 1
 		}
 
+		// Utilise la couleur du bloc ou la couleur par défaut
+		blockColor := convertColor(block.Color)
+
 		borderedContainer, btn := ui.createBorderedButton(
 			block.Label,
 			func(b types.Action) func() {
 				return func() { ui.ExecuteAction(b) }
 			}(block),
 			0, 0,
-			color.RGBA{R: 255, G: 0, B: 0, A: 255},
+			blockColor,
 		)
+
+		// Stocke aussi la couleur de highlight
+		if block.HighlightColor != nil {
+			btn.HighlightColor = convertColor(block.HighlightColor)
+		} else {
+			// Utilise le bleu par défaut pour le highlight
+			btn.HighlightColor = color.RGBA{R: 0, G: 0, B: 255, A: 255}
+		}
 
 		item := GridItem{
 			Object:   borderedContainer,
@@ -91,7 +110,6 @@ func (ui *UIManager) renderBlocks(containerAction types.Action) (fyne.CanvasObje
 	}
 
 	// Convertir groupMap en [][][]*ColorButton
-	// Format: groups[groupIndex][rowIndex][buttonIndex]
 	groups := make([][][]*ColorButton, 0)
 
 	// Trouver le nombre de groupes

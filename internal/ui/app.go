@@ -272,31 +272,6 @@ func (ui *UIManager) StartGroupScan() {
 	}()
 }
 
-func unhighlightlastGroup(group [][]*ColorButton) {
-	for _, row := range group {
-		for _, btn := range row {
-			btn.BGColor = btn.OriginalColor
-			btn.Refresh()
-		}
-	}
-}
-
-func highlightGroup(group [][][]*ColorButton, index int) {
-	for i, rows := range group {
-		for _, row := range rows {
-			for _, btn := range row {
-				if i == index {
-					fmt.Println(btn.BGColor)
-					btn.BGColor = color.RGBA{B: 255, A: 255}
-				} else {
-					btn.BGColor = btn.OriginalColor
-				}
-				btn.Refresh()
-			}
-		}
-	}
-}
-
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 
@@ -327,26 +302,6 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 			}
 		}
 	}()
-}
-
-func unhighlightlastRow(row []*ColorButton) {
-	for _, btn := range row {
-		btn.BGColor = btn.OriginalColor
-		btn.Refresh()
-	}
-}
-
-func highlightRow(rows [][]*ColorButton, index int) {
-	for i, row := range rows {
-		for _, btn := range row {
-			if i == index {
-				btn.BGColor = color.RGBA{B: 255, A: 255}
-			} else {
-				btn.BGColor = btn.OriginalColor
-			}
-			btn.Refresh()
-		}
-	}
 }
 
 func (ui *UIManager) StartItemScan() {
@@ -381,20 +336,98 @@ func (ui *UIManager) StartItemScan() {
 	}()
 }
 
-func unhighlightlastItem(btn *ColorButton) {
-	btn.BGColor = btn.OriginalColor
-	btn.Refresh()
+// unhighlightAll retire la surbrillance de tous les boutons d'une liste
+func unhighlightAll(buttons []*ColorButton) {
+	for _, btn := range buttons {
+		btn.Unhighlight()
+	}
 }
 
-func highlightItem(items []*ColorButton, index int) {
-	for i, item := range items {
-		if i == index {
-			item.BGColor = color.RGBA{B: 255, A: 255}
-		} else {
-			item.BGColor = item.OriginalColor
-		}
-		item.Refresh()
+// highlightButtons met en surbrillance un ensemble spécifique de boutons
+func highlightButtons(allButtons, buttonsToHighlight []*ColorButton) {
+	// Crée un set des boutons à mettre en surbrillance pour une recherche rapide
+	highlightSet := make(map[*ColorButton]bool)
+	for _, btn := range buttonsToHighlight {
+		highlightSet[btn] = true
 	}
+
+	// Applique highlight ou unhighlight selon l'appartenance au set
+	for _, btn := range allButtons {
+		if highlightSet[btn] {
+			btn.Highlight()
+		} else {
+			btn.Unhighlight()
+		}
+	}
+}
+
+// unhighlightlastGroup retire la surbrillance d'un groupe entier
+func unhighlightlastGroup(group [][]*ColorButton) {
+	for _, row := range group {
+		unhighlightAll(row)
+	}
+}
+
+// highlightGroup met en surbrillance un groupe spécifique dans la liste de groupes
+func highlightGroup(groups [][][]*ColorButton, index int) {
+	if index < 0 || index >= len(groups) {
+		return
+	}
+
+	// Désactive tous les groupes
+	for _, group := range groups {
+		unhighlightlastGroup(group)
+	}
+
+	// Active le groupe sélectionné
+	selectedGroup := groups[index]
+	for _, row := range selectedGroup {
+		for _, btn := range row {
+			btn.Highlight()
+		}
+	}
+}
+
+// unhighlightlastRow retire la surbrillance d'une ligne
+func unhighlightlastRow(row []*ColorButton) {
+	unhighlightAll(row)
+}
+
+// highlightRow met en surbrillance une ligne spécifique dans la liste de lignes
+func highlightRow(rows [][]*ColorButton, index int) {
+	if index < 0 || index >= len(rows) {
+		return
+	}
+
+	// Désactive toutes les lignes
+	for _, row := range rows {
+		unhighlightAll(row)
+	}
+
+	// Active la ligne sélectionnée
+	for _, btn := range rows[index] {
+		btn.Highlight()
+	}
+}
+
+// unhighlightlastItem retire la surbrillance d'un item
+func unhighlightlastItem(btn *ColorButton) {
+	if btn != nil {
+		btn.Unhighlight()
+	}
+}
+
+// highlightItem met en surbrillance un item spécifique dans une liste
+func highlightItem(items []*ColorButton, index int) {
+	if index < 0 || index >= len(items) {
+		return
+	}
+
+	// Désactive tous les items
+	unhighlightAll(items)
+
+	// Active l'item sélectionné
+	items[index].Highlight()
 }
 
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
