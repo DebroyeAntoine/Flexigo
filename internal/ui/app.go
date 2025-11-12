@@ -47,6 +47,7 @@ type UIManager struct {
 	textBuffer       string
 	textInput        *widget.Entry
 	orchestration    *orchestration.Orchestration
+	voice            string
 }
 
 // Thème personnalisé pour contrôler les couleurs
@@ -158,7 +159,7 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 
 	case "speak":
 		fmt.Println("Lecture du texte:", ui.textBuffer)
-		ui.orchestration.Say(ui.textBuffer)
+		ui.orchestration.SayWithVoice(ui.textBuffer, ui.voice)
 
 	default:
 		ui.ExecuteAction(action)
@@ -577,6 +578,7 @@ func StartUI(cfg *types.Config) error {
 	myUI := NewUIManager(myWindow)
 	myUI.orchestration = &orchestration
 	myUI.buttonToAction = make(map[*ColorButton]types.Action, 10)
+	myUI.voice = cfg.Voice
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		if k.Name == fyne.KeyReturn {
 			myUI.HandleEnterKey()

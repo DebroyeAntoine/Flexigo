@@ -1,3 +1,4 @@
+voice: "Amélie"
 blocks:
   - label: "Menu Principal"
     type: container

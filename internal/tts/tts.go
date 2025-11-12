@@ -4,6 +4,8 @@ import "fmt"
 
 type TTSProvider interface {
 	Say(text string) error
+	SayWithVoice(text string, voice string) error
+	ListVoices() ([]string, error)
 }
 
 func NewTTSProvider(provider string) (TTSProvider, error) {
@@ -14,3 +16,4 @@ func NewTTSProvider(provider string) (TTSProvider, error) {
 		return nil, fmt.Errorf("provider TTS non supporté: %s", provider)
 	}
 }
+

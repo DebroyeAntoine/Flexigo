@@ -32,6 +32,7 @@ type Action struct {
 }
 
 type Config struct {
+	Voice          string   `yaml:"voice,omitempty"` // Voix TTS à utiliser
 	Blocks         []Action `yaml:"blocks"`
 	DefaultColor   *Color   `yaml:"default_color,omitempty"`           // Couleur par défaut pour tous les boutons
 	HighlightColor *Color   `yaml:"default_highlight_color,omitempty"` // Couleur de highlight par défaut
@@ -57,4 +58,3 @@ func DefaultButtonColor() *Color {
 func DefaultHighlightColor() *Color {
 	return &Color{R: 0, G: 0, B: 255, A: 255}
 }
-
