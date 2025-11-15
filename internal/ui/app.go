@@ -3,15 +3,16 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"log"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	//"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/DebroyeAntoine/flexigo/internal/browser"
 	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
 	"github.com/DebroyeAntoine/flexigo/internal/tts"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
@@ -24,11 +25,13 @@ const (
 	StateGroup
 	StateRows
 	StateItems
+	StateBrowserMode
 )
 
 type UIManager struct {
 	state            GridState
 	window           fyne.Window
+	app              fyne.App
 	contentContainer *fyne.Container
 	navigationStack  []types.Action
 	currentContainer types.Action
@@ -48,6 +51,11 @@ type UIManager struct {
 	textInput        *widget.Entry
 	orchestration    *orchestration.Orchestration
 	voice            string
+
+	// Browser mode avec nouvelle fenêtre
+	browserExecutor      *browser.BrowserExecutor
+	browserControlWindow fyne.Window // Nouvelle petite fenêtre de contrôle
+	browserActive        bool
 }
 
 // Thème personnalisé pour contrôler les couleurs
@@ -81,15 +89,115 @@ func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant)
 	}
 }
 
-func NewUIManager(window fyne.Window) *UIManager {
+func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	return &UIManager{
 		state:            StateIdle,
 		window:           window,
+		app:              app,
 		contentContainer: container.NewStack(container.NewVBox()),
+		browserActive:    false,
 	}
 }
 
+// EnterBrowserMode lance le navigateur et crée une NOUVELLE fenêtre de contrôle
+func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
+	log.Println("Entering browser mode...")
+
+	// Lance le navigateur
+	ui.browserExecutor = browser.NewBrowserExecutor(browserPath)
+	if err := ui.browserExecutor.Launch(url); err != nil {
+		return fmt.Errorf("failed to launch browser: %w", err)
+	}
+
+	ui.browserActive = true
+	ui.state = StateBrowserMode
+
+	// Attend que le navigateur démarre
+	time.Sleep(500 * time.Millisecond)
+
+	// Crée une NOUVELLE petite fenêtre pour le contrôle
+	ui.browserControlWindow = ui.app.NewWindow("Contrôle Navigateur")
+
+	quitBtn := widget.NewButton("🚪 Fermer le navigateur", func() {
+		log.Println("Quit button clicked")
+		if err := ui.ExitBrowserMode(); err != nil {
+			log.Printf("Error exiting browser mode: %v", err)
+		}
+	})
+	quitBtn.Importance = widget.HighImportance
+
+	statusLabel := widget.NewLabel("🌐 Navigateur actif")
+	statusLabel.Alignment = fyne.TextAlignCenter
+	statusLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	content := container.NewVBox(
+		layout.NewSpacer(),
+		statusLabel,
+		quitBtn,
+		layout.NewSpacer(),
+	)
+
+	ui.browserControlWindow.SetContent(content)
+	ui.browserControlWindow.Resize(fyne.NewSize(300, 150))
+	ui.browserControlWindow.CenterOnScreen()
+
+	// Gestion de la fermeture de la fenêtre de contrôle
+	ui.browserControlWindow.SetOnClosed(func() {
+		log.Println("Control window closed, exiting browser mode")
+		ui.ExitBrowserMode()
+	})
+
+	// Affiche la fenêtre de contrôle
+	ui.browserControlWindow.Show()
+
+	// Cache la fenêtre principale (optionnel)
+	// ui.window.Hide()
+
+	// OU met la fenêtre principale en arrière-plan en la minimisant
+	// Note: Fyne n'a pas de méthode native pour minimiser,
+	// donc on peut soit la cacher, soit la laisser en plein écran derrière le navigateur
+
+	log.Println("Browser mode active - control window shown")
+	return nil
+}
+
+// ExitBrowserMode ferme le navigateur et la fenêtre de contrôle
+func (ui *UIManager) ExitBrowserMode() error {
+	log.Println("Exiting browser mode...")
+
+	if !ui.browserActive {
+		return nil
+	}
+
+	// Ferme le navigateur
+	if ui.browserExecutor != nil {
+		if err := ui.browserExecutor.Close(); err != nil {
+			log.Printf("Warning: error closing browser: %v", err)
+		}
+		ui.browserExecutor = nil
+	}
+
+	// Ferme la fenêtre de contrôle
+	if ui.browserControlWindow != nil {
+		ui.browserControlWindow.Close()
+		ui.browserControlWindow = nil
+	}
+
+	ui.browserActive = false
+	ui.state = StateIdle
+
+	// Restaure la fenêtre principale si elle était cachée
+	// ui.window.Show()
+
+	log.Println("Browser mode exited")
+	return nil
+}
+
 func (ui *UIManager) HandleEnterKey() {
+	if ui.state == StateBrowserMode {
+		return
+	}
+
 	switch ui.state {
 	case StateIdle:
 		ui.state = StateGroup
@@ -154,7 +262,7 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 			ui.textInput.SetText(ui.textBuffer)
 		}
 	case "speak":
-		if err := ui.orchestration.Say(ui.textBuffer); err != nil {
+		if err := ui.orchestration.SayWithVoice(ui.textBuffer, ui.voice); err != nil {
 			log.Printf("TTS error: %v", err)
 		}
 	default:
@@ -554,7 +662,9 @@ func StartUI(cfg *types.Config) error {
 	}
 	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg}
 	myWindow.SetFullScreen(true)
-	myUI := NewUIManager(myWindow)
+
+	// IMPORTANT: Passer l'app en plus du window
+	myUI := NewUIManager(myWindow, myApp)
 	myUI.orchestration = &orchestration
 	myUI.buttonToAction = make(map[*ColorButton]types.Action, 10)
 	myUI.voice = cfg.Voice
@@ -580,5 +690,11 @@ func StartUI(cfg *types.Config) error {
 	))
 
 	myWindow.ShowAndRun()
+
+	// Cleanup
+	if myUI.browserExecutor != nil {
+		myUI.browserExecutor.Close()
+	}
+
 	return nil
 }

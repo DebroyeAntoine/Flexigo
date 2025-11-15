@@ -27,7 +27,9 @@ type Action struct {
 	GridWidth       int               `yaml:"grid_width,omitempty"`
 	GridHeight      int               `yaml:"grid_height,omitempty"`
 	GroupMembership *int              `yaml:"group_membership,omitempty"`
-	Color           *Color            `yaml:"color,omitempty"`           // Couleur du bouton
+	Color           *Color            `yaml:"color,omitempty"`        // Couleur du bouton
+	BrowserPath     string            `yaml:"browser_path,omitempty"` // Chemin vers l'exécutable du navigateur
+	BrowserURL      string            `yaml:"browser_url,omitempty"`
 	HighlightColor  *Color            `yaml:"highlight_color,omitempty"` // Couleur lors du scan
 }
 
