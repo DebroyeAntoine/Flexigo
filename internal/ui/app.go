@@ -140,27 +140,23 @@ func (ui *UIManager) OpenVirtualKeyboard() {
 }
 
 func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
-	fmt.Println("coucou")
 	switch action.Type {
 	case "char":
 		ui.textBuffer += action.Label
 		ui.textInput.SetText(ui.textBuffer)
-
 	case "space":
 		ui.textBuffer += " "
 		ui.textInput.SetText(ui.textBuffer)
-
 	case "delete":
 		if len(ui.textBuffer) > 0 {
 			runes := []rune(ui.textBuffer)
 			ui.textBuffer = string(runes[:len(runes)-1])
 			ui.textInput.SetText(ui.textBuffer)
 		}
-
 	case "speak":
-		fmt.Println("Lecture du texte:", ui.textBuffer)
-		ui.orchestration.SayWithVoice(ui.textBuffer, ui.voice)
-
+		if err := ui.orchestration.Say(ui.textBuffer); err != nil {
+			log.Printf("TTS error: %v", err)
+		}
 	default:
 		ui.ExecuteAction(action)
 	}
@@ -223,35 +219,53 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		ui.navigationStack = append(ui.navigationStack, ui.currentContainer)
 		ui.updateView(block)
 		ui.setState(StateIdle)
+		return
 	}
+
+	if block.Type == "browser" {
+		browserPath := block.BrowserPath
+		if browserPath == "" {
+			browserPath = browser.GetDefaultBrowserPath()
+		}
+
+		if err := ui.EnterBrowserMode(browserPath, block.BrowserURL); err != nil {
+			log.Printf("Failed to enter browser mode: %v", err)
+		}
+		return
+	}
+
 	if block.Type == "keyboard" {
 		ui.OpenVirtualKeyboard()
 		return
 	}
+
 	if block.Type == "char" || block.Type == "speak" {
 		ui.ExecuteKeyboardAction(block)
-		//	ui.textBuffer = block.Label
-		//	fmt.Println(ui.textBuffer)
-	} else {
-		ui.setState(StateIdle)
-		fmt.Println("Action lancée :", block.Label)
 		return
 	}
+
+	if block.Type == "tts" {
+		if err := ui.orchestration.ExecuteTTSAction(block); err != nil {
+			log.Printf("TTS action failed: %v", err)
+		}
+	}
+
+	ui.setState(StateIdle)
+	fmt.Println("Action lancée :", block.Label)
 }
 
+// [... Le reste des fonctions de scan restent identiques ...]
 func (ui *UIManager) StartGroupScan() {
-	fmt.Println(ui.groups)
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
-
 	currentGroup := 0
 
 	go func() {
 		for {
 			select {
 			case <-ui.groupScanDone:
+				ticker.Stop()
 				return
 			case <-ticker.C:
-				fmt.Println(currentGroup)
 				if currentGroup >= len(ui.groups) {
 					ticker.Stop()
 					ui.selectedGroup = nil
@@ -273,15 +287,39 @@ func (ui *UIManager) StartGroupScan() {
 	}()
 }
 
+func unhighlightlastGroup(group [][]*ColorButton) {
+	for _, row := range group {
+		for _, btn := range row {
+			btn.BGColor = btn.OriginalColor
+			btn.Refresh()
+		}
+	}
+}
+
+func highlightGroup(group [][][]*ColorButton, index int) {
+	for i, rows := range group {
+		for _, row := range rows {
+			for _, btn := range row {
+				if i == index {
+					btn.BGColor = color.RGBA{B: 255, A: 255}
+				} else {
+					btn.BGColor = btn.OriginalColor
+				}
+				btn.Refresh()
+			}
+		}
+	}
+}
+
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
-
 	currentRow := 0
 
 	go func() {
 		for {
 			select {
 			case <-ui.rowScanDone:
+				ticker.Stop()
 				return
 			case <-ticker.C:
 				if currentRow >= len(ui.rows) {
@@ -305,15 +343,35 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	}()
 }
 
+func unhighlightlastRow(row []*ColorButton) {
+	for _, btn := range row {
+		btn.BGColor = btn.OriginalColor
+		btn.Refresh()
+	}
+}
+
+func highlightRow(rows [][]*ColorButton, index int) {
+	for i, row := range rows {
+		for _, btn := range row {
+			if i == index {
+				btn.BGColor = color.RGBA{B: 255, A: 255}
+			} else {
+				btn.BGColor = btn.OriginalColor
+			}
+			btn.Refresh()
+		}
+	}
+}
+
 func (ui *UIManager) StartItemScan() {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
-
 	currentCol := 0
 
 	go func() {
 		for {
 			select {
 			case <-ui.itemScanDone:
+				ticker.Stop()
 				return
 			case <-ticker.C:
 				if currentCol >= len(ui.selectedRow) {
@@ -337,104 +395,25 @@ func (ui *UIManager) StartItemScan() {
 	}()
 }
 
-// unhighlightAll retire la surbrillance de tous les boutons d'une liste
-func unhighlightAll(buttons []*ColorButton) {
-	for _, btn := range buttons {
-		btn.Unhighlight()
-	}
-}
-
-// highlightButtons met en surbrillance un ensemble spécifique de boutons
-func highlightButtons(allButtons, buttonsToHighlight []*ColorButton) {
-	// Crée un set des boutons à mettre en surbrillance pour une recherche rapide
-	highlightSet := make(map[*ColorButton]bool)
-	for _, btn := range buttonsToHighlight {
-		highlightSet[btn] = true
-	}
-
-	// Applique highlight ou unhighlight selon l'appartenance au set
-	for _, btn := range allButtons {
-		if highlightSet[btn] {
-			btn.Highlight()
-		} else {
-			btn.Unhighlight()
-		}
-	}
-}
-
-// unhighlightlastGroup retire la surbrillance d'un groupe entier
-func unhighlightlastGroup(group [][]*ColorButton) {
-	for _, row := range group {
-		unhighlightAll(row)
-	}
-}
-
-// highlightGroup met en surbrillance un groupe spécifique dans la liste de groupes
-func highlightGroup(groups [][][]*ColorButton, index int) {
-	if index < 0 || index >= len(groups) {
-		return
-	}
-
-	// Désactive tous les groupes
-	for _, group := range groups {
-		unhighlightlastGroup(group)
-	}
-
-	// Active le groupe sélectionné
-	selectedGroup := groups[index]
-	for _, row := range selectedGroup {
-		for _, btn := range row {
-			btn.Highlight()
-		}
-	}
-}
-
-// unhighlightlastRow retire la surbrillance d'une ligne
-func unhighlightlastRow(row []*ColorButton) {
-	unhighlightAll(row)
-}
-
-// highlightRow met en surbrillance une ligne spécifique dans la liste de lignes
-func highlightRow(rows [][]*ColorButton, index int) {
-	if index < 0 || index >= len(rows) {
-		return
-	}
-
-	// Désactive toutes les lignes
-	for _, row := range rows {
-		unhighlightAll(row)
-	}
-
-	// Active la ligne sélectionnée
-	for _, btn := range rows[index] {
-		btn.Highlight()
-	}
-}
-
-// unhighlightlastItem retire la surbrillance d'un item
 func unhighlightlastItem(btn *ColorButton) {
-	if btn != nil {
-		btn.Unhighlight()
-	}
+	btn.BGColor = btn.OriginalColor
+	btn.Refresh()
 }
 
-// highlightItem met en surbrillance un item spécifique dans une liste
 func highlightItem(items []*ColorButton, index int) {
-	if index < 0 || index >= len(items) {
-		return
+	for i, item := range items {
+		if i == index {
+			item.BGColor = color.RGBA{B: 255, A: 255}
+		} else {
+			item.BGColor = item.OriginalColor
+		}
+		item.Refresh()
 	}
-
-	// Désactive tous les items
-	unhighlightAll(items)
-
-	// Active l'item sélectionné
-	items[index].Highlight()
 }
 
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows := [][]*ColorButton{}
 
-	// Crée l'entrée de texte avec le widget Entry natif
 	ui.textInput = widget.NewMultiLineEntry()
 	ui.textInput.SetText(ui.textBuffer)
 	ui.textInput.OnChanged = func(t string) {

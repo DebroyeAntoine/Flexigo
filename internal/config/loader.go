@@ -56,6 +56,64 @@ func CreateDefaultGroup(cfg *types.Config) {
 	}
 }
 
+// applyDefaultColors applique récursivement les couleurs par défaut
+func applyDefaultColors(actions []types.Action, defaultColor, defaultHighlight *types.Color) {
+	for i := range actions {
+		// Applique la couleur par défaut si non définie
+		if actions[i].Color == nil {
+			actions[i].Color = defaultColor
+		}
+
+		// Applique la couleur de highlight par défaut si non définie
+		if actions[i].HighlightColor == nil {
+			actions[i].HighlightColor = defaultHighlight
+		}
+
+		// Applique récursivement aux enfants
+		if actions[i].Type == "container" && len(actions[i].Children) > 0 {
+			applyDefaultColors(actions[i].Children, defaultColor, defaultHighlight)
+		}
+	}
+}
+
+// UniformizeColors applique les couleurs par défaut à tous les blocs
+func UniformizeColors(cfg *types.Config) {
+	// Définit les couleurs par défaut au niveau de la config si non définies
+	if cfg.DefaultColor == nil {
+		cfg.DefaultColor = types.DefaultButtonColor()
+	}
+	if cfg.HighlightColor == nil {
+		cfg.HighlightColor = types.DefaultHighlightColor()
+	}
+
+	// Applique aux blocs
+	applyDefaultColors(cfg.Blocks, cfg.DefaultColor, cfg.HighlightColor)
+}
+
+// applyDefaultVoice applique récursivement la voix par défaut aux actions TTS
+func applyDefaultVoice(actions []types.Action, defaultVoice string) {
+	for i := range actions {
+		// Applique la voix par défaut uniquement aux actions TTS sans voix définie
+		if actions[i].Type == "tts" && actions[i].Voice == "" {
+			actions[i].Voice = defaultVoice
+		}
+
+		// Applique récursivement aux enfants
+		if actions[i].Type == "container" && len(actions[i].Children) > 0 {
+			applyDefaultVoice(actions[i].Children, defaultVoice)
+		}
+	}
+}
+
+// UniformizeVoice applique la voix par défaut à toutes les actions TTS
+func UniformizeVoice(cfg *types.Config) {
+	if cfg.DefaultVoice == "" {
+		return // Pas de voix par défaut définie
+	}
+
+	applyDefaultVoice(cfg.Blocks, cfg.DefaultVoice)
+}
+
 func LoadConfig(path string) (*types.Config, error) {
 	_ = godotenv.Load(".env")
 
@@ -69,9 +127,12 @@ func LoadConfig(path string) (*types.Config, error) {
 		return nil, err
 	}
 
+	// Applique les valeurs par défaut dans l'ordre
 	CreateDefaultGroup(&cfg)
-
 	UniformizeTimer(&cfg)
+	UniformizeColors(&cfg)
+	UniformizeVoice(&cfg)
 
 	return &cfg, nil
 }
+
