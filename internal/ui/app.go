@@ -99,7 +99,6 @@ func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	}
 }
 
-// EnterBrowserMode lance le navigateur et crée une NOUVELLE fenêtre de contrôle
 func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
 	log.Println("Entering browser mode...")
 
@@ -115,31 +114,23 @@ func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
 	// Attend que le navigateur démarre
 	time.Sleep(500 * time.Millisecond)
 
+	// Cache la fenêtre principale
+	//	ui.window.Hide()
+
 	// Crée une NOUVELLE petite fenêtre pour le contrôle
 	ui.browserControlWindow = ui.app.NewWindow("Contrôle Navigateur")
 
-	quitBtn := widget.NewButton("🚪 Fermer le navigateur", func() {
-		log.Println("Quit button clicked")
-		if err := ui.ExitBrowserMode(); err != nil {
-			log.Printf("Error exiting browser mode: %v", err)
-		}
-	})
-	quitBtn.Importance = widget.HighImportance
-
-	statusLabel := widget.NewLabel("🌐 Navigateur actif")
-	statusLabel.Alignment = fyne.TextAlignCenter
-	statusLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	content := container.NewVBox(
-		layout.NewSpacer(),
-		statusLabel,
-		quitBtn,
-		layout.NewSpacer(),
-	)
-
+	// Applique le contenu stylisé
+	content := ui.createBrowserControlContent()
 	ui.browserControlWindow.SetContent(content)
-	ui.browserControlWindow.Resize(fyne.NewSize(300, 150))
-	ui.browserControlWindow.CenterOnScreen()
+
+	// Calcule la taille minimale du contenu
+	minSize := content.MinSize()
+	ui.browserControlWindow.Resize(minSize)
+
+	// Positionne en haut à gauche de l'écran
+	ui.browserControlWindow.SetFixedSize(true) // Empêche le redimensionnement
+	ui.PositionWindow("Contrôle Navigateur", 0, 0)
 
 	// Gestion de la fermeture de la fenêtre de contrôle
 	ui.browserControlWindow.SetOnClosed(func() {
@@ -148,17 +139,48 @@ func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
 	})
 
 	// Affiche la fenêtre de contrôle
-	ui.browserControlWindow.Show()
+	//	ui.browserControlWindow.Show()
 
-	// Cache la fenêtre principale (optionnel)
-	// ui.window.Hide()
-
-	// OU met la fenêtre principale en arrière-plan en la minimisant
-	// Note: Fyne n'a pas de méthode native pour minimiser,
-	// donc on peut soit la cacher, soit la laisser en plein écran derrière le navigateur
+	// Positionne en haut à gauche après l'affichage
+	// (nécessaire car la position n'est accessible qu'après Show())
+	canvas := ui.browserControlWindow.Canvas()
+	if canvas != nil {
+		// Petite astuce : on force la position via un refresh
+		ui.browserControlWindow.RequestFocus()
+	}
 
 	log.Println("Browser mode active - control window shown")
 	return nil
+}
+
+// createBrowserControlContent crée le contenu stylisé de la fenêtre de contrôle
+func (ui *UIManager) createBrowserControlContent() fyne.CanvasObject {
+	// Utilise vos ColorButton au lieu des boutons standards
+	quitBtn := NewColorButton("Exit", func() {
+		log.Println("Quit button clicked")
+		if err := ui.ExitBrowserMode(); err != nil {
+			log.Printf("Error exiting browser mode: %v", err)
+		}
+	}, color.RGBA{R: 220, G: 53, B: 69, A: 255}) // Rouge pour le bouton de fermeture
+
+	// Ajuste la taille du texte si nécessaire
+	quitBtn.MinSize()
+
+	// Disposition verticale avec espacement
+	content := container.NewVBox(
+		layout.NewSpacer(),
+		container.NewCenter(
+			container.NewVBox(
+				quitBtn,
+			),
+		),
+		layout.NewSpacer(),
+	)
+
+	// Optionnel : ajouter un fond de couleur pour toute la fenêtre
+	// bgRect := canvas.NewRectangle(color.RGBA{R: 240, G: 240, B: 240, A: 255})
+
+	return container.NewStack(content)
 }
 
 // ExitBrowserMode ferme le navigateur et la fenêtre de contrôle
