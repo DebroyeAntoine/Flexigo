@@ -1,13 +1,15 @@
 package orchestration
 
 import (
+	httpClient "github.com/DebroyeAntoine/flexigo/internal/http"
 	"github.com/DebroyeAntoine/flexigo/internal/tts"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
 type Orchestration struct {
-	TTS tts.TTSProvider
-	Cfg *types.Config
+	TTS  tts.TTSProvider
+	HTTP *httpClient.HTTPClient
+	Cfg  *types.Config
 }
 
 // Say parle le texte avec la voix par défaut
@@ -20,7 +22,6 @@ func (a *Orchestration) SayWithVoice(text string, voice string) error {
 	return a.TTS.SayWithVoice(text, voice)
 }
 
-// ExecuteTTSAction exécute une action TTS en utilisant la voix configurée
 func (a *Orchestration) ExecuteTTSAction(action types.Action) error {
 	if action.Type != "tts" {
 		return nil
@@ -33,3 +34,15 @@ func (a *Orchestration) ExecuteTTSAction(action types.Action) error {
 	return a.Say(action.Text)
 }
 
+func (a *Orchestration) ExecuteHTTPAction(action types.Action) error {
+	if action.Type != "http" {
+		return nil
+	}
+
+	method := action.Method
+	if method == "" {
+		method = "POST"
+	}
+
+	return a.HTTP.ExecuteRequest(method, action.URL, action.Headers, action.Body)
+}

@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/DebroyeAntoine/flexigo/internal/browser"
+	"github.com/DebroyeAntoine/flexigo/internal/http"
 	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
 	"github.com/DebroyeAntoine/flexigo/internal/tts"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
@@ -379,6 +380,11 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 			log.Printf("TTS action failed: %v", err)
 		}
 	}
+	if block.Type == "http" {
+		if err := ui.orchestration.ExecuteHTTPAction(block); err != nil {
+			log.Printf("HTTP action failed: %v", err)
+		}
+	}
 
 	ui.setState(StateIdle)
 	fmt.Println("Action lancée :", block.Label)
@@ -682,7 +688,9 @@ func StartUI(cfg *types.Config) error {
 	if err != nil {
 		return err
 	}
-	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg}
+	httpClient := http.NewHTTPClient()
+
+	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg, HTTP: httpClient}
 	myWindow.SetFullScreen(true)
 
 	// IMPORTANT: Passer l'app en plus du window

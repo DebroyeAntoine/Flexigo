@@ -1,8 +1,11 @@
 package orchestration
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	httpClient "github.com/DebroyeAntoine/flexigo/internal/http"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
@@ -34,7 +37,7 @@ func TestOrchestrationSay(t *testing.T) {
 	mockTTS := &fakeTTS{}
 	cfg := &types.Config{}
 
-	o := Orchestration{TTS: mockTTS, Cfg: cfg}
+	o := Orchestration{TTS: mockTTS, HTTP: httpClient.NewHTTPClient(), Cfg: cfg}
 
 	err := o.Say("Hello test")
 	if err != nil {
@@ -54,7 +57,7 @@ func TestOrchestrationSayWithVoice(t *testing.T) {
 	mockTTS := &fakeTTS{}
 	cfg := &types.Config{}
 
-	o := Orchestration{TTS: mockTTS, Cfg: cfg}
+	o := Orchestration{TTS: mockTTS, HTTP: httpClient.NewHTTPClient(), Cfg: cfg}
 
 	tests := []struct {
 		name  string
@@ -103,7 +106,7 @@ func TestOrchestrationExecuteTTSAction(t *testing.T) {
 	mockTTS := &fakeTTS{}
 	cfg := &types.Config{}
 
-	o := Orchestration{TTS: mockTTS, Cfg: cfg}
+	o := Orchestration{TTS: mockTTS, HTTP: httpClient.NewHTTPClient(), Cfg: cfg}
 
 	tests := []struct {
 		name          string
@@ -178,11 +181,77 @@ func TestOrchestrationExecuteTTSAction(t *testing.T) {
 	}
 }
 
+func TestOrchestrationExecuteHTTPAction(t *testing.T) {
+	requestReceived := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestReceived = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	mockTTS := &fakeTTS{}
+	cfg := &types.Config{}
+	o := Orchestration{TTS: mockTTS, HTTP: httpClient.NewHTTPClient(), Cfg: cfg}
+
+	tests := []struct {
+		name          string
+		action        types.Action
+		shouldExecute bool
+	}{
+		{
+			name: "HTTP GET action",
+			action: types.Action{
+				Type:   "http",
+				Method: "GET",
+				URL:    server.URL,
+			},
+			shouldExecute: true,
+		},
+		{
+			name: "HTTP POST action",
+			action: types.Action{
+				Type:   "http",
+				Method: "POST",
+				URL:    server.URL,
+				Body:   `{"test": "data"}`,
+			},
+			shouldExecute: true,
+		},
+		{
+			name: "Non-HTTP action",
+			action: types.Action{
+				Type:  "tts",
+				Label: "Not HTTP",
+			},
+			shouldExecute: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestReceived = false
+
+			err := o.ExecuteHTTPAction(tt.action)
+			if err != nil {
+				t.Fatalf("ExecuteHTTPAction returned unexpected error: %v", err)
+			}
+
+			if tt.shouldExecute && !requestReceived {
+				t.Error("Expected HTTP request to be made, but it wasn't")
+			}
+
+			if !tt.shouldExecute && requestReceived {
+				t.Error("Expected no HTTP request for non-HTTP action, but one was made")
+			}
+		})
+	}
+}
+
 func TestOrchestrationMultipleCalls(t *testing.T) {
 	mockTTS := &fakeTTS{}
 	cfg := &types.Config{}
 
-	o := Orchestration{TTS: mockTTS, Cfg: cfg}
+	o := Orchestration{TTS: mockTTS, HTTP: httpClient.NewHTTPClient(), Cfg: cfg}
 
 	// Appelle Say plusieurs fois
 	_ = o.Say("First")
@@ -202,4 +271,3 @@ func TestOrchestrationMultipleCalls(t *testing.T) {
 		t.Errorf("Expected last text to be 'Third', got '%s'", mockTTS.calledText)
 	}
 }
-
