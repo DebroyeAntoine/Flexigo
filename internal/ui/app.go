@@ -131,7 +131,6 @@ func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
 
 	// Positionne en haut à gauche de l'écran
 	ui.browserControlWindow.SetFixedSize(true) // Empêche le redimensionnement
-	ui.PositionWindow("Contrôle Navigateur", 0, 0)
 
 	// Gestion de la fermeture de la fenêtre de contrôle
 	ui.browserControlWindow.SetOnClosed(func() {
@@ -140,7 +139,7 @@ func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
 	})
 
 	// Affiche la fenêtre de contrôle
-	//	ui.browserControlWindow.Show()
+	ui.browserControlWindow.Show()
 
 	// Positionne en haut à gauche après l'affichage
 	// (nécessaire car la position n'est accessible qu'après Show())
@@ -150,6 +149,7 @@ func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
 		ui.browserControlWindow.RequestFocus()
 	}
 
+	ui.PositionWindow("Contrôle Navigateur", 0, 0)
 	log.Println("Browser mode active - control window shown")
 	return nil
 }

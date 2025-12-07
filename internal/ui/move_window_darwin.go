@@ -36,5 +36,5 @@ func posWinLinux(title string, x, y int) error {
 }
 
 func posWinWindows(title string, x, y int) error {
-	return fmt.Errorf("posWinWindows called on macOS — shouldn't happen")
+	return fmt.Errorf("posWinWindows called on Linux — shouldn't happen")
 }

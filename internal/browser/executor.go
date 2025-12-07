@@ -3,8 +3,10 @@ package browser
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
+	"time"
 )
 
 // LaunchOptions définit les options de lancement du navigateur
@@ -98,18 +100,39 @@ func (b *BrowserExecutor) Close() error {
 	}
 
 	log.Printf("Closing browser (PID: %d)", b.process.Process.Pid)
+	var err error
 
-	// Essaie de tuer le processus proprement
-	if err := b.process.Process.Kill(); err != nil {
-		return fmt.Errorf("failed to kill browser process: %w", err)
+	switch runtime.GOOS {
+	case "windows":
+		// Sur Windows, tenter de fermer Firefox/Chrome proprement via taskkill
+		cmd := exec.Command("taskkill", "/IM", "firefox.exe", "/T")
+		_ = cmd.Run() // On ignore l'erreur, car le processus peut ne pas être là
+	default:
+		// Sur Unix/Linux/macOS, envoie un signal soft
+		err = b.process.Process.Signal(os.Interrupt)
+		if err != nil {
+			log.Printf("Soft kill failed: %v", err)
+		}
 	}
 
 	// Attend que le processus se termine
 	_ = b.process.Wait()
+	// Attendre un peu pour que le navigateur se ferme correctement
+	done := make(chan error, 1)
+	go func() {
+		done <- b.process.Wait()
+	}()
 
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println("Browser did not exit in time, killing it")
+		err = b.process.Process.Kill()
+	case err = <-done:
+		// Processus fermé correctement
+	}
 	b.process = nil
 	log.Println("Browser closed successfully")
-	return nil
+	return err
 }
 
 // GetDefaultBrowserPath retourne le chemin par défaut du navigateur selon l'OS
@@ -137,4 +160,3 @@ func GetDefaultBrowserPath() string {
 		return "google-chrome"
 	}
 }
-
