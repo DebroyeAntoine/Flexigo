@@ -18,5 +18,9 @@ func main() {
 	for i, block := range cfg.Blocks {
 		fmt.Printf("[%d] %s (%s)\n", i+1, block.Label, block.Type)
 	}
-	ui.StartUI(cfg)
+	uiErr := ui.StartUI(cfg)
+	if uiErr != nil {
+		// Si StartUI échoue (à cause de l'IR par exemple)
+		log.Fatalf("Erreur fatale : %v", uiErr)
+	}
 }

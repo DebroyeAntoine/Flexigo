@@ -1,8 +1,30 @@
-body { margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-header { height: 50px; background: #333; display: flex; align-items: center; padding: 0 10px; gap: 5px; }
-#tabs { height: 30px; background: #222; display: flex; overflow-x: auto; }
-.tab { padding: 5px 10px; color: white; background: #444; border: 1px solid #222; cursor: pointer; font-size: 12px; }
-.tab.active { background: #666; }
-input#url { flex: 1; padding: 5px; border-radius: 4px; border: none; }
-button { cursor: pointer; padding: 5px 10px; }
-#quit { background: #ff4444; color: white; font-weight: bold; border: none; border-radius: 4px; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; font-family: sans-serif; height: 100vh; background: #222; color: white; overflow: hidden; }
+
+#app-container { display: flex; flex-direction: column; height: 100vh; }
+
+#tabs { height: 40px; background: #111; display: flex; align-items: flex-end; padding: 0 5px; gap: 4px; }
+.tab { background: #333; padding: 8px 15px; border-radius: 5px 5px 0 0; min-width: 150px; font-size: 11px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #ccc; }
+.tab.active { background: #eee; color: black; }
+.tab button { background: transparent; border: none; color: inherit; cursor: pointer; font-weight: bold; }
+
+header { height: 50px; background: #333; display: flex; align-items: center; padding: 0 10px; gap: 10px; border-bottom: 1px solid #444; }
+header button { background: #444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+header button:active { background: #0078d4; }
+#quit { background: #a33; }
+input#url { flex: 1; padding: 10px; border-radius: 4px; border: none; font-size: 14px; background: #fff; color: #000; }
+
+#view-placeholder { flex: 1; background: #000; }
+
+#keyboard-container { height: 320px; background: #000; padding: 8px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #444; }
+#keyboard-container.hidden { display: none; }
+
+.keyboard-row { display: flex; gap: 6px; flex: 1; }
+.key { 
+    flex: 1; background: #fff; color: #000; border: none; border-radius: 4px; 
+    font-weight: bold; font-size: 18px; cursor: pointer; text-transform: uppercase;
+    display: flex; align-items: center; justify-content: center;
+}
+.key:active { background: #0078d4; color: #fff; }
+.wide { flex: 2; background: #ddd; font-size: 14px; }
+.extra-wide { flex: 5; background: #ddd; }

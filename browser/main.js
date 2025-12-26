@@ -1,245 +1,111 @@
-const {
-  app,
-  BrowserWindow,
-  BrowserView,
-  ipcMain,
-  session
-} = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const path = require('path');
-
-/* ------------------ Utils ------------------ */
-
-function extractUrlFromArgv(argv) {
-  for (const arg of argv.slice(1)) {
-    if (/^(https?:\/\/|www\.)/i.test(arg)) {
-      return arg.startsWith('http') ? arg : `https://${arg}`;
-    }
-  }
-  return null;
-}
-
-/* ------------------ State ------------------ */
 
 let mainWindow = null;
 let tabs = [];
 let activeTabIndex = -1;
-
-const HEADER_HEIGHT = 80;
-
-const DEFAULT_URL = 'https://www.google.com';
-let initialUrl = extractUrlFromArgv(process.argv) || DEFAULT_URL;
-
-const CUSTOM_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) " +
-  "AppleWebKit/537.36 (KHTML, like Gecko) " +
-  "Chrome/120.0.0.0 Safari/537.36";
-
-/* ------------------ Window ------------------ */
+let currentBounds = { x: 0, y: 90, width: 1200, height: 800 };
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1200, height: 900,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+      contextIsolation: true
     }
   });
-
   mainWindow.loadFile('index.html');
-
-  mainWindow.on('resize', resizeActiveView);
-
-  // Onglet initial
-  createTab(initialUrl);
+  // Laisse le temps au DOM de charger avant de créer le premier onglet
+  setTimeout(() => createTab('https://web.whatsapp.com'), 500);
 }
-
-/* ------------------ Tabs ------------------ */
 
 function createTab(url) {
   const view = new BrowserView({
-    webPreferences: {
-      contextIsolation: true,
-      partition: 'persist:mainSession'
-    }
+    webPreferences: { contextIsolation: true, partition: 'persist:mainSession' }
   });
-
-  view.webContents.setUserAgent(CUSTOM_UA);
+  view.webContents.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
   view.webContents.loadURL(url);
 
-  const tab = {
-    view,
-    url,
-    title: 'Nouvel onglet',
-    favicon: null
-  };
-
+  const tab = { view, url, title: 'Chargement...' };
   tabs.push(tab);
-  const index = tabs.length - 1;
-
-  // URL
-  view.webContents.on('did-navigate', (_e, newUrl) => {
-    tab.url = newUrl;
-    if (index === activeTabIndex) {
-      mainWindow.webContents.send('url-changed', newUrl);
-    }
-  });
-
-  // Titre
-  view.webContents.on('page-title-updated', (_e, title) => {
-    tab.title = title || tab.url;
+  
+  view.webContents.on('page-title-updated', (e, title) => {
+    tab.title = title;
     sendTabs();
   });
 
-  // Favicon
-  view.webContents.on('page-favicon-updated', (_e, favicons) => {
-    if (favicons && favicons.length > 0) {
-      tab.favicon = favicons[0];
-      sendTabs();
-    }
-  });
-
-  switchTab(index);
-  sendTabs();
+  switchTab(tabs.length - 1);
 }
 
 function switchTab(index) {
   if (!tabs[index]) return;
-
-  if (activeTabIndex !== -1) {
-    mainWindow.removeBrowserView(tabs[activeTabIndex].view);
-  }
-
+  if (activeTabIndex !== -1) mainWindow.removeBrowserView(tabs[activeTabIndex].view);
   activeTabIndex = index;
-  mainWindow.setBrowserView(tabs[activeTabIndex].view);
-  resizeActiveView();
-
-  mainWindow.webContents.send('url-changed', tabs[activeTabIndex].url);
+  mainWindow.addBrowserView(tabs[activeTabIndex].view);
+  tabs[activeTabIndex].view.setBounds(currentBounds);
   sendTabs();
 }
 
-function closeTab(index) {
-  if (!tabs[index]) return;
-
-  const tab = tabs[index];
-  mainWindow.removeBrowserView(tab.view);
-  tab.view.webContents.destroy();
-
-  tabs.splice(index, 1);
-
-  if (activeTabIndex >= tabs.length) {
-    activeTabIndex = tabs.length - 1;
+// Commande de redimensionnement
+ipcMain.on('set-bounds', (e, bounds) => {
+  currentBounds = bounds;
+  if (tabs[activeTabIndex]) {
+    tabs[activeTabIndex].view.setBounds(bounds);
+    // On force le scroll vers l'élément actif (input) après le redimensionnement
+    forceScroll();
   }
+});
 
-  if (tabs.length > 0) {
+function forceScroll() {
+  const wc = tabs[activeTabIndex]?.view.webContents;
+  if (!wc) return;
+  
+  // Script injecté dans la page web :
+  // On cherche l'élément qui a le focus et on le centre dans la nouvelle vue
+  const script = `
+    if (document.activeElement) {
+      document.activeElement.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  `;
+  // Petit délai pour laisser la page web s'adapter aux nouvelles dimensions
+  setTimeout(() => {
+    wc.executeJavaScript(script).catch(() => {});
+  }, 200);
+}
+
+ipcMain.on('type-key', (e, key) => {
+  const wc = tabs[activeTabIndex]?.view.webContents;
+  if (!wc) return;
+  if (key === 'Backspace') wc.sendInputEvent({ type: 'keyDown', keyCode: 'Backspace' });
+  else if (key === 'Enter') wc.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+  else wc.sendInputEvent({ type: 'char', keyCode: key });
+  
+  // Optionnel : scroller à chaque touche pressée pour être sûr
+  forceScroll();
+});
+
+ipcMain.on('new-tab', () => createTab('https://www.google.com'));
+ipcMain.on('switch-tab', (e, i) => switchTab(i));
+ipcMain.on('close-tab', (e, i) => {
+  if (tabs.length > 1) {
+    const removed = tabs.splice(i, 1);
+    removed[0].view.webContents.destroy();
+    activeTabIndex = Math.min(activeTabIndex, tabs.length - 1);
     switchTab(activeTabIndex);
   }
-
-  sendTabs();
-}
-
-function resizeActiveView() {
-  if (!mainWindow || activeTabIndex === -1) return;
-
-  const bounds = mainWindow.getContentBounds();
-
-  tabs[activeTabIndex].view.setBounds({
-    x: 0,
-    y: HEADER_HEIGHT,
-    width: bounds.width,
-    height: bounds.height - HEADER_HEIGHT
-  });
-}
+});
+ipcMain.on('load-url', (e, url) => tabs[activeTabIndex]?.view.webContents.loadURL(url));
+ipcMain.on('go-back', () => tabs[activeTabIndex]?.view.webContents.goBack());
+ipcMain.on('go-forward', () => tabs[activeTabIndex]?.view.webContents.goForward());
+ipcMain.on('reload', () => tabs[activeTabIndex]?.view.webContents.reload());
+ipcMain.on('quit', () => app.quit());
 
 function sendTabs() {
-  if (!mainWindow) return;
-
-  mainWindow.webContents.send(
-    'tabs-updated',
-    tabs.map((t, i) => ({
-      index: i,
-      active: i === activeTabIndex,
-      title: t.title,
-      favicon: t.favicon
-    }))
-  );
-}
-
-/* ------------------ IPC ------------------ */
-
-ipcMain.on('new-tab', () => createTab(DEFAULT_URL));
-ipcMain.on('switch-tab', (_e, i) => switchTab(i));
-ipcMain.on('close-tab', (_e, i) => closeTab(i));
-
-ipcMain.on('load-url', (_e, url) => {
-  tabs[activeTabIndex]?.view.webContents.loadURL(url);
-});
-
-ipcMain.on('go-back', () => {
-  const wc = tabs[activeTabIndex]?.view.webContents;
-  if (wc?.canGoBack()) wc.goBack();
-});
-
-ipcMain.on('go-forward', () => {
-  const wc = tabs[activeTabIndex]?.view.webContents;
-  if (wc?.canGoForward()) wc.goForward();
-});
-
-ipcMain.on('reload', () => {
-  tabs[activeTabIndex]?.view.webContents.reload();
-});
-
-ipcMain.on('clear-session', async () => {
-  const ses = session.fromPartition('persist:mainSession');
-  await ses.clearStorageData();
-  await ses.clearCache();
-});
-
-ipcMain.on('quit', () => {
-  app.quit(); // Simple et propre
-});
-
-
-/* ------------------ Single Instance ------------------ */
-
-const gotLock = app.requestSingleInstanceLock();
-
-if (!gotLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (_event, argv) => {
-    const incomingUrl = extractUrlFromArgv(argv);
-    if (incomingUrl) {
-      createTab(incomingUrl);
-    }
-
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
-  });
-}
-
-/* ------------------ macOS open-url ------------------ */
-
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-
-  if (!url.startsWith('http')) return;
-
   if (mainWindow) {
-    createTab(url);
-    mainWindow.focus();
-  } else {
-    initialUrl = url;
+    mainWindow.webContents.send('tabs-updated', tabs.map((t, i) => ({
+      index: i, active: i === activeTabIndex, title: t.title
+    })));
   }
-});
-
-/* ------------------ App lifecycle ------------------ */
+}
 
 app.whenReady().then(createWindow);
-
-app.on('window-all-closed', () => {
-  app.quit();
-});
