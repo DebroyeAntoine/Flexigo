@@ -737,6 +737,7 @@ func StartUI(cfg *types.Config) error {
 
 	var irSender ir.IRSender
 	if cfg.IRBackend != "" {
+		var irErr error
 		irConfig := ir.IRConfig{
 			SerialPort:   cfg.IRSerialPort,
 			BaudRate:     cfg.IRBaudRate,
@@ -744,7 +745,13 @@ func StartUI(cfg *types.Config) error {
 			Timeout:      5000,
 		}
 
-		irSender, _ = ir.NewIRSender(cfg.IRBackend, irConfig)
+		irSender, irErr = ir.NewIRSender(cfg.IRBackend, irConfig)
+		if irErr != nil {
+			// Ici on s'arrête et on retourne l'erreur avant de lancer l'UI
+			fmt.Println("test")
+			return fmt.Errorf("impossible d'initialiser le module IR sur %s : %w", cfg.IRSerialPort, irErr)
+		}
+
 	}
 
 	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg, HTTP: httpClient, IR: irSender}
@@ -760,6 +767,17 @@ func StartUI(cfg *types.Config) error {
 			myUI.HandleEnterKey()
 		}
 	})
+
+	if s, ok := irSender.(*ir.SerialIRSender); ok {
+		s.ListenForEvents(func(msg string) {
+			if msg == "BTN:CLICK" {
+				// Utiliser fyne.Do pour s'assurer que l'action s'exécute sur le thread UI
+				fyne.Do(func() {
+					myUI.HandleEnterKey()
+				})
+			}
+		})
+	}
 
 	// Start after the main bloc
 	if len(cfg.Blocks) == 0 {

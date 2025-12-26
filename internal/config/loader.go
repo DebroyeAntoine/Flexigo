@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -23,6 +24,22 @@ func applyDefaultTimer(actions []types.Action, defaultTimer int) {
 			applyDefaultTimer(actions[i].Children, actions[i].Timer)
 		}
 	}
+}
+
+func ValidateIRConfig(cfg *types.Config) error {
+	if cfg.IRBackend == "" {
+		return nil // Pas d'IR configuré, c'est valide
+	}
+
+	if cfg.IRBackend == "serial" {
+		if cfg.IRSerialPort == "" {
+			return fmt.Errorf("IRBackend est 'serial' mais IRSerialPort est vide dans la configuration")
+		}
+		if cfg.IRBaudRate <= 0 {
+			cfg.IRBaudRate = 9600 // Valeur par défaut si manquant
+		}
+	}
+	return nil
 }
 
 func UniformizeTimer(cfg *types.Config) {
@@ -132,7 +149,9 @@ func LoadConfig(path string) (*types.Config, error) {
 	UniformizeTimer(&cfg)
 	UniformizeColors(&cfg)
 	UniformizeVoice(&cfg)
+	if err := ValidateIRConfig(&cfg); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
 }
-

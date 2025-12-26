@@ -258,3 +258,36 @@ func (s *SerialIRSender) ReceiveIR() ([]IRCommand, error) {
 	}
 }
 
+func (s *SerialIRSender) ListenForEvents(callback func(string)) {
+	if s.port == nil {
+		return
+	}
+
+	go func() {
+		buf := make([]byte, 128)
+		var line string
+		for {
+			n, err := s.port.Read(buf)
+			if err != nil {
+				// En cas d'erreur, on tente de se reconnecter après un délai
+				time.Sleep(2 * time.Second)
+				s.connect()
+				continue
+			}
+			if n > 0 {
+				line += string(buf[:n])
+				if strings.Contains(line, "\n") {
+					parts := strings.Split(line, "\n")
+					// On traite toutes les lignes complètes sauf la dernière (potentiellement incomplète)
+					for i := 0; i < len(parts)-1; i++ {
+						msg := strings.TrimSpace(parts[i])
+						if msg != "" && msg != "KA" { // On ignore le KeepAlive
+							callback(msg)
+						}
+					}
+					line = parts[len(parts)-1]
+				}
+			}
+		}
+	}()
+}
