@@ -26,7 +26,8 @@ flexigo/
 │   ├── types/            # Data types and structures
 │   └── ui/               # Graphical interface (Fyne)
 ├── bin/                  # External binaries (flexigo-tts)
-├── config.yaml           # Main configuration
+├── assets/
+│   └─ config.yaml        # Main configuration
 ├── .env                  # Environment variables (secrets)
 └── main.go               # Entry point
 ```

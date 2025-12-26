@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"image/color"
 	"log"
+	"os"
+	"os/exec"
+	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -14,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/DebroyeAntoine/flexigo/internal/browser"
 	"github.com/DebroyeAntoine/flexigo/internal/http"
+	"github.com/DebroyeAntoine/flexigo/internal/ir"
 	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
 	"github.com/DebroyeAntoine/flexigo/internal/tts"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
@@ -100,59 +104,97 @@ func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	}
 }
 
-func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
-	log.Println("Entering browser mode...")
+func getBrowserPath() string {
+	// En développement, on peut pointer vers le dossier bin
+	// En production, le binaire sera à côté de l'app
+	basePath := "./bin/browser/"
 
-	// Lance le navigateur
-	ui.browserExecutor = browser.NewBrowserExecutor(browserPath)
-	if err := ui.browserExecutor.Launch(url); err != nil {
-		return fmt.Errorf("failed to launch browser: %w", err)
+	switch runtime.GOOS {
+	case "windows":
+		return basePath + "win-unpacked/flexigo-browser.exe"
+	case "darwin":
+		return basePath + "mac-arm64/flexigo-browser.app/Contents/MacOS/flexigo-browser"
+		// Pour macOS, le binaire est à l'intérieur du .app
+		return basePath + "mac/flexigo-browser.app/Contents/MacOS/flexigo-browser"
+	case "linux":
+		return basePath + "linux-unpacked/flexigo-browser"
+	default:
+		return ""
 	}
-
-	ui.browserActive = true
-	ui.state = StateBrowserMode
-
-	// Attend que le navigateur démarre
-	time.Sleep(500 * time.Millisecond)
-
-	// Cache la fenêtre principale
-	//	ui.window.Hide()
-
-	// Crée une NOUVELLE petite fenêtre pour le contrôle
-	ui.browserControlWindow = ui.app.NewWindow("Contrôle Navigateur")
-
-	// Applique le contenu stylisé
-	content := ui.createBrowserControlContent()
-	ui.browserControlWindow.SetContent(content)
-
-	// Calcule la taille minimale du contenu
-	minSize := content.MinSize()
-	ui.browserControlWindow.Resize(minSize)
-
-	// Positionne en haut à gauche de l'écran
-	ui.browserControlWindow.SetFixedSize(true) // Empêche le redimensionnement
-
-	// Gestion de la fermeture de la fenêtre de contrôle
-	ui.browserControlWindow.SetOnClosed(func() {
-		log.Println("Control window closed, exiting browser mode")
-		ui.ExitBrowserMode()
-	})
-
-	// Affiche la fenêtre de contrôle
-	ui.browserControlWindow.Show()
-
-	// Positionne en haut à gauche après l'affichage
-	// (nécessaire car la position n'est accessible qu'après Show())
-	canvas := ui.browserControlWindow.Canvas()
-	if canvas != nil {
-		// Petite astuce : on force la position via un refresh
-		ui.browserControlWindow.RequestFocus()
-	}
-
-	ui.PositionWindow("Contrôle Navigateur", 0, 0)
-	log.Println("Browser mode active - control window shown")
-	return nil
 }
+
+func (ui *UIManager) EnterBrowserMode(url string) {
+	path := getBrowserPath()
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Printf("Erreur : binaire browser introuvable à %s", path)
+		return
+	}
+
+	ui.window.Hide()
+
+	// On lance et on attend
+	cmd := exec.Command(path, url)
+	err := cmd.Run()
+	if err != nil {
+		log.Println("Le browser s'est arrêté avec une erreur:", err)
+	}
+
+	ui.window.Show()
+}
+
+//func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
+//	log.Println("Entering browser mode...")
+//
+//	// Lance le navigateur
+//	ui.browserExecutor = browser.NewBrowserExecutor(browserPath)
+//	if err := ui.browserExecutor.Launch(url); err != nil {
+//		return fmt.Errorf("failed to launch browser: %w", err)
+//	}
+//
+//	ui.browserActive = true
+//	ui.state = StateBrowserMode
+//
+//	// Attend que le navigateur démarre
+//	time.Sleep(500 * time.Millisecond)
+//
+//	// Cache la fenêtre principale
+//	//	ui.window.Hide()
+//
+//	// Crée une NOUVELLE petite fenêtre pour le contrôle
+//	ui.browserControlWindow = ui.app.NewWindow("Contrôle Navigateur")
+//
+//	// Applique le contenu stylisé
+//	content := ui.createBrowserControlContent()
+//	ui.browserControlWindow.SetContent(content)
+//
+//	// Calcule la taille minimale du contenu
+//	minSize := content.MinSize()
+//	ui.browserControlWindow.Resize(minSize)
+//
+//	// Positionne en haut à gauche de l'écran
+//	ui.browserControlWindow.SetFixedSize(true) // Empêche le redimensionnement
+//
+//	// Gestion de la fermeture de la fenêtre de contrôle
+//	ui.browserControlWindow.SetOnClosed(func() {
+//		log.Println("Control window closed, exiting browser mode")
+//		ui.ExitBrowserMode()
+//	})
+//
+//	// Affiche la fenêtre de contrôle
+//	ui.browserControlWindow.Show()
+//
+//	// Positionne en haut à gauche après l'affichage
+//	// (nécessaire car la position n'est accessible qu'après Show())
+//	canvas := ui.browserControlWindow.Canvas()
+//	if canvas != nil {
+//		// Petite astuce : on force la position via un refresh
+//		ui.browserControlWindow.RequestFocus()
+//	}
+//
+//	ui.PositionWindow("Contrôle Navigateur", 0, 0)
+//	log.Println("Browser mode active - control window shown")
+//	return nil
+//}
 
 // createBrowserControlContent crée le contenu stylisé de la fenêtre de contrôle
 func (ui *UIManager) createBrowserControlContent() fyne.CanvasObject {
@@ -359,9 +401,7 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 			browserPath = browser.GetDefaultBrowserPath()
 		}
 
-		if err := ui.EnterBrowserMode(browserPath, block.BrowserURL); err != nil {
-			log.Printf("Failed to enter browser mode: %v", err)
-		}
+		ui.EnterBrowserMode(block.BrowserURL)
 		return
 	}
 
@@ -383,6 +423,11 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 	if block.Type == "http" {
 		if err := ui.orchestration.ExecuteHTTPAction(block); err != nil {
 			log.Printf("HTTP action failed: %v", err)
+		}
+	}
+	if block.Type == "ir" {
+		if err := ui.orchestration.ExecuteIRAction(block); err != nil {
+			log.Printf("IR action failed: %v", err)
 		}
 	}
 
@@ -690,7 +735,19 @@ func StartUI(cfg *types.Config) error {
 	}
 	httpClient := http.NewHTTPClient()
 
-	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg, HTTP: httpClient}
+	var irSender ir.IRSender
+	if cfg.IRBackend != "" {
+		irConfig := ir.IRConfig{
+			SerialPort:   cfg.IRSerialPort,
+			BaudRate:     cfg.IRBaudRate,
+			CommandsFile: "ir_commands.yaml",
+			Timeout:      5000,
+		}
+
+		irSender, _ = ir.NewIRSender(cfg.IRBackend, irConfig)
+	}
+
+	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg, HTTP: httpClient, IR: irSender}
 	myWindow.SetFullScreen(true)
 
 	// IMPORTANT: Passer l'app en plus du window

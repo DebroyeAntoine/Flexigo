@@ -9,7 +9,7 @@ type Color struct {
 
 type Action struct {
 	Label           string            `yaml:"label"`
-	Type            string            `yaml:"type"` // "http", "exec", "tts", "container", "keyboard", "char", "speak", "space", "delete", "back"
+	Type            string            `yaml:"type"` // "http", "exec", "tts", "container", "keyboard", "char", "speak", "space", "delete", "back", "ir"
 	Method          string            `yaml:"method,omitempty"`
 	URL             string            `yaml:"url,omitempty"`
 	Headers         map[string]string `yaml:"headers,omitempty"`
@@ -31,6 +31,13 @@ type Action struct {
 	BrowserPath     string            `yaml:"browser_path,omitempty"` // Chemin vers l'exécutable du navigateur
 	BrowserURL      string            `yaml:"browser_url,omitempty"`
 	HighlightColor  *Color            `yaml:"highlight_color,omitempty"` // Couleur lors du scan
+
+	// Infrared fields
+	IRDevice   string `yaml:"ir_device,omitempty"`   // Ex: "tv", "ac"
+	IRCommand  string `yaml:"ir_command,omitempty"`  // Ex: "power", "volume_up"
+	IRProtocol string `yaml:"ir_protocol,omitempty"` // Ex: "NEC", "RC5"
+	IRCode     string `yaml:"ir_code,omitempty"`     // Code hex
+	IRRepeat   int    `yaml:"ir_repeat,omitempty"`   // Nombre de répétitions
 }
 
 type Config struct {
@@ -39,6 +46,12 @@ type Config struct {
 	DefaultColor   *Color   `yaml:"default_color,omitempty"`           // Couleur par défaut pour tous les boutons
 	HighlightColor *Color   `yaml:"default_highlight_color,omitempty"` // Couleur de highlight par défaut
 	DefaultVoice   string   `yaml:"default_voice,omitempty"`           // Voix TTS par défaut
+
+	// IR configuration
+	IRBackend    string `yaml:"ir_backend,omitempty"`     // "serial", "mock"
+	IRSerialPort string `yaml:"ir_serial_port,omitempty"` // Ex: "/dev/ttyUSB0"
+	IRBaudRate   int    `yaml:"ir_baud_rate,omitempty"`   // Ex: 9600
+	IRLIRCSocket string `yaml:"ir_lirc_socket,omitempty"` // Ex: "/var/run/lirc/lircd"
 }
 
 type Position struct {

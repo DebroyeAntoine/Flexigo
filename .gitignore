@@ -86,3 +86,5 @@ perf.data*
 **/doc/
 # Fichiers de test de benchmark
 bench_output/
+browser/node_modules
+browser/package-lock.json
