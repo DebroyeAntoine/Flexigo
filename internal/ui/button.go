@@ -90,16 +90,21 @@ type colorButtonRenderer struct {
 	objects    []fyne.CanvasObject
 }
 
-// Layout positions the background and centers the text within the widget's size.
+// Layout positions the background and centers the text label.
 func (r *colorButtonRenderer) Layout(size fyne.Size) {
 	// Background fills the entire widget area
 	r.background.Resize(size)
 
-	// Center the text label
-	textSize := r.label.MinSize()
-	x := (size.Width - textSize.Width) / 2
-	y := (size.Height - textSize.Height) / 2
-	r.label.Move(fyne.NewPos(x, y))
+	// Get the text's minimum size to calculate vertical centering
+	labelMin := r.label.MinSize()
+
+	// To center horizontally using TextAlign: Center, the text object
+	// must be as wide as the button itself.
+	r.label.Resize(fyne.NewSize(size.Width, labelMin.Height))
+
+	// Calculate vertical offset to center the text block
+	yPos := (size.Height - labelMin.Height) / 2
+	r.label.Move(fyne.NewPos(0, yPos))
 }
 
 // MinSize returns the minimum size required to display the text with padding.
@@ -124,4 +129,3 @@ func (r *colorButtonRenderer) Objects() []fyne.CanvasObject {
 
 // Destroy cleans up resources (no-op in this implementation).
 func (r *colorButtonRenderer) Destroy() {}
-
