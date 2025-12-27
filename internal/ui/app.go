@@ -381,6 +381,13 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 func (ui *UIManager) StartGroupScan() {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentGroup := 0
+	if len(ui.groups) == 1 {
+		ui.state = StateRows
+		ui.rows = ui.groups[0]
+		ui.rowScanDone = make(chan bool)
+		ui.StartRowsScan(func(t int) {})
+		return
+	}
 
 	go func() {
 		for {
@@ -619,7 +626,8 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows = append([][]*ColorButton{backRow}, buttonRows...)
 
 	ui.buttonToAction[backBtn] = types.Action{Label: "Retour", Type: "back"}
-	ui.rows = buttonRows
+	ui.groups = [][][]*ColorButton{buttonRows}
+	// ui.rows = buttonRows
 }
 
 // ShowVirtualKeyboardFromLayout prepares the keyboard actions based on the configuration layout
