@@ -61,6 +61,7 @@ type UIManager struct {
 	browserExecutor      *browser.BrowserExecutor
 	browserControlWindow fyne.Window // Nouvelle petite fenêtre de contrôle
 	browserActive        bool
+	currentCmd           *exec.Cmd
 }
 
 // Thème personnalisé pour contrôler les couleurs
@@ -114,8 +115,6 @@ func getBrowserPath() string {
 		return basePath + "win-unpacked/flexigo-browser.exe"
 	case "darwin":
 		return basePath + "mac-arm64/flexigo-browser.app/Contents/MacOS/flexigo-browser"
-		// Pour macOS, le binaire est à l'intérieur du .app
-		return basePath + "mac/flexigo-browser.app/Contents/MacOS/flexigo-browser"
 	case "linux":
 		return basePath + "linux-unpacked/flexigo-browser"
 	default:
@@ -131,99 +130,25 @@ func (ui *UIManager) EnterBrowserMode(url string) {
 	}
 
 	ui.window.Hide()
+	ui.state = StateBrowserMode
 
-	// On lance et on attend
-	cmd := exec.Command(path, url)
-	err := cmd.Run()
+	ui.currentCmd = exec.Command(path, url)
+	err := ui.currentCmd.Start()
 	if err != nil {
-		log.Println("Le browser s'est arrêté avec une erreur:", err)
+		log.Println("Erreur au lancement du browser:", err)
+		ui.window.Show()
+		ui.state = StateIdle
+		return
 	}
 
-	ui.window.Show()
-}
-
-//func (ui *UIManager) EnterBrowserMode(browserPath, url string) error {
-//	log.Println("Entering browser mode...")
-//
-//	// Lance le navigateur
-//	ui.browserExecutor = browser.NewBrowserExecutor(browserPath)
-//	if err := ui.browserExecutor.Launch(url); err != nil {
-//		return fmt.Errorf("failed to launch browser: %w", err)
-//	}
-//
-//	ui.browserActive = true
-//	ui.state = StateBrowserMode
-//
-//	// Attend que le navigateur démarre
-//	time.Sleep(500 * time.Millisecond)
-//
-//	// Cache la fenêtre principale
-//	//	ui.window.Hide()
-//
-//	// Crée une NOUVELLE petite fenêtre pour le contrôle
-//	ui.browserControlWindow = ui.app.NewWindow("Contrôle Navigateur")
-//
-//	// Applique le contenu stylisé
-//	content := ui.createBrowserControlContent()
-//	ui.browserControlWindow.SetContent(content)
-//
-//	// Calcule la taille minimale du contenu
-//	minSize := content.MinSize()
-//	ui.browserControlWindow.Resize(minSize)
-//
-//	// Positionne en haut à gauche de l'écran
-//	ui.browserControlWindow.SetFixedSize(true) // Empêche le redimensionnement
-//
-//	// Gestion de la fermeture de la fenêtre de contrôle
-//	ui.browserControlWindow.SetOnClosed(func() {
-//		log.Println("Control window closed, exiting browser mode")
-//		ui.ExitBrowserMode()
-//	})
-//
-//	// Affiche la fenêtre de contrôle
-//	ui.browserControlWindow.Show()
-//
-//	// Positionne en haut à gauche après l'affichage
-//	// (nécessaire car la position n'est accessible qu'après Show())
-//	canvas := ui.browserControlWindow.Canvas()
-//	if canvas != nil {
-//		// Petite astuce : on force la position via un refresh
-//		ui.browserControlWindow.RequestFocus()
-//	}
-//
-//	ui.PositionWindow("Contrôle Navigateur", 0, 0)
-//	log.Println("Browser mode active - control window shown")
-//	return nil
-//}
-
-// createBrowserControlContent crée le contenu stylisé de la fenêtre de contrôle
-func (ui *UIManager) createBrowserControlContent() fyne.CanvasObject {
-	// Utilise vos ColorButton au lieu des boutons standards
-	quitBtn := NewColorButton("Exit", func() {
-		log.Println("Quit button clicked")
-		if err := ui.ExitBrowserMode(); err != nil {
-			log.Printf("Error exiting browser mode: %v", err)
-		}
-	}, color.RGBA{R: 220, G: 53, B: 69, A: 255}) // Rouge pour le bouton de fermeture
-
-	// Ajuste la taille du texte si nécessaire
-	quitBtn.MinSize()
-
-	// Disposition verticale avec espacement
-	content := container.NewVBox(
-		layout.NewSpacer(),
-		container.NewCenter(
-			container.NewVBox(
-				quitBtn,
-			),
-		),
-		layout.NewSpacer(),
-	)
-
-	// Optionnel : ajouter un fond de couleur pour toute la fenêtre
-	// bgRect := canvas.NewRectangle(color.RGBA{R: 240, G: 240, B: 240, A: 255})
-
-	return container.NewStack(content)
+	go func() {
+		ui.currentCmd.Wait()
+		fyne.Do(func() {
+			ui.state = StateIdle
+			ui.currentCmd = nil
+			ui.window.Show()
+		})
+	}()
 }
 
 // ExitBrowserMode ferme le navigateur et la fenêtre de contrôle
@@ -260,6 +185,10 @@ func (ui *UIManager) ExitBrowserMode() error {
 
 func (ui *UIManager) HandleEnterKey() {
 	if ui.state == StateBrowserMode {
+		if ui.currentCmd != nil && ui.currentCmd.Process != nil {
+			fmt.Println("Stopping Browser")
+			ui.currentCmd.Process.Kill()
+		}
 		return
 	}
 
