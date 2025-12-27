@@ -16,7 +16,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/DebroyeAntoine/flexigo/internal/browser"
 	"github.com/DebroyeAntoine/flexigo/internal/http"
 	"github.com/DebroyeAntoine/flexigo/internal/ir"
 	"github.com/DebroyeAntoine/flexigo/internal/orchestration"
