@@ -6,6 +6,11 @@ blocks:
   - label: "Menu Principal"
     type: container
     timer: 1000
+    background:
+      r: 127
+      g: 0
+      b: 0
+      a: 255
     grid_width: 4
     grid_height: 8
     children:

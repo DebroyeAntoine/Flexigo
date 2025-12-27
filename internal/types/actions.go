@@ -31,6 +31,7 @@ type Action struct {
 	BrowserPath     string            `yaml:"browser_path,omitempty"` // Chemin vers l'exécutable du navigateur
 	BrowserURL      string            `yaml:"browser_url,omitempty"`
 	HighlightColor  *Color            `yaml:"highlight_color,omitempty"` // Couleur lors du scan
+	Background      *Color            `yaml:"background,omitempty"`
 
 	// Infrared fields
 	IRDevice   string `yaml:"ir_device,omitempty"`   // Ex: "tv", "ac"
@@ -46,6 +47,7 @@ type Config struct {
 	DefaultColor   *Color   `yaml:"default_color,omitempty"`           // Couleur par défaut pour tous les boutons
 	HighlightColor *Color   `yaml:"default_highlight_color,omitempty"` // Couleur de highlight par défaut
 	DefaultVoice   string   `yaml:"default_voice,omitempty"`           // Voix TTS par défaut
+	Background     *Color   `yaml:"default_background,omitempty"`      // Couleur de highlight par défaut
 
 	// IR configuration
 	IRBackend    string `yaml:"ir_backend,omitempty"`     // "serial", "mock"
@@ -72,4 +74,8 @@ func DefaultButtonColor() *Color {
 
 func DefaultHighlightColor() *Color {
 	return &Color{R: 0, G: 0, B: 255, A: 255}
+}
+
+func DefaultBackgroundColor() *Color {
+	return &Color{R: 0, G: 0, B: 0, A: 255}
 }

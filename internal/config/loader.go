@@ -74,7 +74,7 @@ func CreateDefaultGroup(cfg *types.Config) {
 }
 
 // applyDefaultColors applique récursivement les couleurs par défaut
-func applyDefaultColors(actions []types.Action, defaultColor, defaultHighlight *types.Color) {
+func applyDefaultColors(actions []types.Action, defaultColor, defaultHighlight, defaultBackground *types.Color) {
 	for i := range actions {
 		// Applique la couleur par défaut si non définie
 		if actions[i].Color == nil {
@@ -86,9 +86,13 @@ func applyDefaultColors(actions []types.Action, defaultColor, defaultHighlight *
 			actions[i].HighlightColor = defaultHighlight
 		}
 
+		if actions[i].Background == nil {
+			actions[i].Background = defaultBackground
+		}
+
 		// Applique récursivement aux enfants
 		if actions[i].Type == "container" && len(actions[i].Children) > 0 {
-			applyDefaultColors(actions[i].Children, defaultColor, defaultHighlight)
+			applyDefaultColors(actions[i].Children, defaultColor, defaultHighlight, defaultBackground)
 		}
 	}
 }
@@ -102,9 +106,12 @@ func UniformizeColors(cfg *types.Config) {
 	if cfg.HighlightColor == nil {
 		cfg.HighlightColor = types.DefaultHighlightColor()
 	}
+	if cfg.Background == nil {
+		cfg.Background = types.DefaultBackgroundColor()
+	}
 
 	// Applique aux blocs
-	applyDefaultColors(cfg.Blocks, cfg.DefaultColor, cfg.HighlightColor)
+	applyDefaultColors(cfg.Blocks, cfg.DefaultColor, cfg.HighlightColor, cfg.Background)
 }
 
 // applyDefaultVoice applique récursivement la voix par défaut aux actions TTS

@@ -11,6 +11,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -271,6 +272,7 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 func (ui *UIManager) updateView(containerAction types.Action) {
 	ui.currentContainer = containerAction
 	ui.blocks = containerAction.Children
+	var mainContent fyne.CanvasObject
 
 	// Add a back button if we are not at the root level
 	if len(ui.navigationStack) > 0 {
@@ -297,12 +299,21 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 		firstValue, rows, groups := ui.renderBlocks(adjustedContainer)
 		ui.rows = rows
 		ui.groups = groups
-		ui.contentContainer.Objects = []fyne.CanvasObject{firstValue}
+		mainContent = firstValue
 	} else {
 		firstValue, rows, groups := ui.renderBlocks(containerAction)
 		ui.rows = rows
 		ui.groups = groups
-		ui.contentContainer.Objects = []fyne.CanvasObject{firstValue}
+		mainContent = firstValue
+	}
+
+	bgColor := containerAction.Background
+	background := canvas.NewRectangle(convertColor(bgColor))
+
+	// Stack the background color behind the buttons
+	ui.contentContainer.Objects = []fyne.CanvasObject{
+		background,
+		mainContent,
 	}
 
 	ui.contentContainer.Refresh()
