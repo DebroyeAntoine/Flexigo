@@ -157,32 +157,6 @@ func (ui *UIManager) EnterBrowserMode(url string) {
 	}()
 }
 
-// ExitBrowserMode closes the browser process and the control window
-func (ui *UIManager) ExitBrowserMode() error {
-	log.Println("Exiting browser mode...")
-
-	if !ui.browserActive {
-		return nil
-	}
-
-	if ui.browserExecutor != nil {
-		if err := ui.browserExecutor.Close(); err != nil {
-			log.Printf("Warning: error closing browser: %v", err)
-		}
-		ui.browserExecutor = nil
-	}
-
-	if ui.browserControlWindow != nil {
-		ui.browserControlWindow.Close()
-		ui.browserControlWindow = nil
-	}
-
-	ui.browserActive = false
-	ui.state = StateIdle
-	log.Println("Browser mode exited")
-	return nil
-}
-
 // HandleEnterKey processes the selection event (Enter key or switch click)
 // based on the current scanning state.
 func (ui *UIManager) HandleEnterKey() {
