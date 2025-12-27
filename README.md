@@ -1,437 +1,142 @@
 # Flexigo 🎯
 
-**Flexigo** is an accessible and configurable user interface application designed to facilitate communication and interaction for people with specific needs. The application features a visual scanning navigation system with customizable buttons that can trigger various actions (text-to-speech, HTTP requests, web browsing, etc.).
+**Flexigo** is a high-performance accessibility framework designed for users with motor impairments. It allows full computer and environmental control using a single switch or key. It combines a multi-level scanning interface, ultra-low latency Text-to-Speech (TTS), smart home integration (HTTP/IR), and a dedicated accessible web browser.
 
 ## ✨ Key Features
 
-- 🎨 **Customizable graphical interface** with colored button grids
-- 🔊 **Text-to-Speech (TTS)** with multiple voice support
-- 🌐 **HTTP requests** (GET, POST, PUT, DELETE) to interact with APIs
-- 🦊 **Integrated browser mode** for web navigation
-- ⌨️ **Configurable virtual keyboard**
-- 🎯 **Scanning system** with group/row/item navigation
-- 🎨 **Customizable colors** for buttons and highlights
-- 🔐 **Environment variable support** for secrets
+- 🎯 **3-Level Smart Scanning**: Navigate through **Groups > Rows > Items** to optimize selection speed for large grids.
+- 🔊 **Native Rust TTS**: Integrated high-speed Text-to-Speech engine written in Rust for immediate feedback.
+- 📺 **Infrared (IR) Control**: Control TVs, Air Conditioners, and other appliances via a dedicated Arduino bridge.
+- 🦊 **Electron Browser Mode**: A separate, full-screen web instance specifically built for switch-based navigation.
+- ⌨️ **Configurable Virtual Keyboard**: Fully customizable layouts via YAML, including word prediction support.
+- 🔌 **IoT & API Orchestration**: Native HTTP client (GET/POST/PUT/DELETE) with environment variable injection for Home Assistant, Philips Hue, etc.
+- 🖱️ **Hardware Native Integration**: Direct support for physical switches via Arduino (HID Mouse emulation + Serial communication).
 
-## 🏗️ Architecture
+## 🏗️ Project Structure
 
-```
+```text
 flexigo/
 ├── internal/
-│   ├── browser/          # Browser launch management
-│   ├── config/           # YAML configuration loading and validation
-│   ├── http/             # HTTP client for API requests
-│   ├── orchestration/    # Action orchestration (TTS, HTTP, etc.)
-│   ├── tts/              # Text-to-speech (Rust TTS wrapper)
-│   ├── types/            # Data types and structures
-│   └── ui/               # Graphical interface (Fyne)
-├── bin/                  # External binaries (flexigo-tts)
-├── assets/
-│   └─ config.yaml        # Main configuration
-├── .env                  # Environment variables (secrets)
-└── main.go               # Entry point
+│   ├── ui/               # Fyne GUI, Scanning logic, Grid rendering
+│   ├── orchestration/    # Action coordination (TTS, HTTP, IR)
+│   ├── ir/               # Serial communication with Arduino
+│   ├── tts/              # Rust TTS binary wrapper
+│   ├── config/           # YAML loading and ENV injection
+│   └── types/            # Shared data structures
+├── browser/              # Electron-based browser source code
+├── rust/tts-rs/          # Rust TTS engine source code
+├── arduino/              # Arduino sketch for Switch & IR hardware
+├── bin/                  # Compiled binaries (TTS, Browser, Flexigo)
+└── assets/config.yaml    # Main user configuration
 ```
 
-## 📋 Prerequisites
+## 🔌 Hardware Setup (Arduino)
 
+To use a physical switch and Infrared features, you need an **Arduino Leonardo** or **Pro Micro** (ATmega32U4 based for HID support).
+
+1.  **Flash**: Upload the code in `arduino/` to your board using the Arduino IDE.
+2.  **Switch**: Connect your accessibility switch to **PIN 2** (Input Pullup).
+3.  **IR LED**: Connect an IR emitter LED to **PIN 9**.
+4.  **Configuration**: Enable the serial bridge in your `assets/config.yaml`:
+    ```yaml
+    ir_backend: "serial"
+    ir_serial_port: "/dev/ttyACM0" # Linux/macOS or "COM3" on Windows
+    ir_baud_rate: 9600
+    ```
+
+## 🚀 Installation & Build
+
+### Prerequisites
 - **Go 1.21+**
-- **Fyne** (GUI framework)
-- **flexigo-tts** (Rust binary for text-to-speech)
-- A web browser (Chrome/Firefox) for browser mode
+- **Rust (Cargo)** (for the TTS engine)
+- **Node.js & NPM** (for the Browser component)
+- **C Compiler (gcc)** (required for Fyne GUI)
 
-### Installing Dependencies
+### Build everything
+The project uses a comprehensive `Makefile` to manage the multi-language build process:
 
 ```bash
-# Fyne installation (varies by OS)
-# Linux
-sudo apt-get install gcc libgl1-mesa-dev xorg-dev
+# 1. Install all dependencies (Go, Rust, Node)
+make deps
 
-# macOS (with Homebrew)
-# No additional dependencies needed
+# 2. Build the entire suite (Go app + Rust TTS + Electron Browser)
+make build
 
-# Windows
-# Install TDM-GCC or MinGW-w64
+# 3. Run Flexigo
+./bin/flexigo
 ```
 
-## 🚀 Installation
+## ⚙️ Configuration Guide (`config.yaml`)
 
-1. **Clone the project**
-```bash
-git clone https://github.com/DebroyeAntoine/flexigo.git
-cd flexigo
-```
+### Grid & Scanning Logic
+Flexigo uses a coordinate system `(x, y)`. The scanning follows this hierarchy:
+1.  **Groups**: Defined by `group_membership`. Useful for jumping between functional blocks (e.g., jump from "Menu" to "Keyboard").
+2.  **Rows**: Vertical scanning within the selected group.
+3.  **Items**: Horizontal scanning within the selected row.
 
-2. **Install Go dependencies**
-```bash
-go mod download
-```
+### Action Types
 
-3. **Compile the TTS binary** (or download from releases)
-```bash
-# If you have the Rust source code
-cd tts-rs
-cargo build --release
-cp target/release/flexigo-tts ../bin/
-```
-
-4. **Create the configuration file**
-```bash
-cp .env.example .env
-# Edit .env with your API keys
-```
-
-5. **Build and run**
-```bash
-go run main.go
-# or
-go build -o flexigo
-./flexigo
-```
-
-## ⚙️ Configuration
-
-### `config.yaml` File Structure
-
+#### **1. Infrared (IR)**
+Supports NEC, SAMSUNG, and SONY protocols via the Arduino bridge.
 ```yaml
-# Default voice for text-to-speech
-voice: "Amélie"
-
-# Default colors (optional)
-default_color:
-  r: 255
-  g: 0
-  b: 0
-  a: 255
-
-default_highlight_color:
-  r: 0
-  g: 0
-  b: 255
-  a: 255
-
-# Default TTS voice (optional)
-default_voice: "Microsoft David"
-
-blocks:
-  - label: "Main Menu"
-    type: container
-    timer: 1000              # Scan duration in ms
-    grid_width: 4            # Number of columns
-    grid_height: 8           # Number of rows
-    children:
-      # ... actions here
+- label: "TV Power"
+  type: ir
+  ir_protocol: "SAMSUNG"
+  ir_code: "0x0707"
+  position: {x: 3, y: 0}
 ```
 
-### Available Action Types
-
-#### 1. **Container** - Sub-action container
+#### **2. Browser**
+Launches the Electron-based browser to the specified URL.
 ```yaml
-- label: "Lights Menu"
-  type: container
-  grid_width: 3
-  grid_height: 3
-  timer: 1500
-  children:
-    - label: "Turn on living room"
-      type: http
-      # ...
-```
-
-#### 2. **TTS** - Text-to-speech
-```yaml
-- label: "Say hello"
-  type: tts
-  text: "Hello, how are you?"
-  voice: "Microsoft Zira"  # Optional
+- label: "Google"
+  type: browser
+  browser_url: "https://google.com"
+  position: {x: 1, y: 1}
   width: 2
-  height: 1
-  position:
-    x: 0
-    y: 0
+  height: 2
 ```
 
-#### 3. **HTTP** - API requests
+#### **3. HTTP (Smart Home)**
 ```yaml
-- label: "Turn on light"
+- label: "Lights On"
   type: http
   method: POST
   url: "http://homeassistant.local:8123/api/services/light/turn_on"
-  headers: # Optional
-    Authorization: "Bearer ${HOME_ASSISTANT_TOKEN}"
-    Content-Type: "application/json"
+  headers:
+    Authorization: "Bearer ${HA_TOKEN}"
   body: '{"entity_id": "light.living_room"}'
 ```
 
-#### 4. **Browser** - Open a website
-```yaml
-- label: "🦊 Firefox"
-  type: browser
-  browser_url: "https://mozilla.org"
-  browser_path: "/usr/bin/firefox"  # Optional
-  width: 2
-  height: 2
-  position:
-    x: 0
-    y: 0
+## 🔐 Environment Variables
+Create a `.env` file at the root to store secrets:
+```bash
+HA_TOKEN=your_long_lived_access_token
+DUMMY_TOKEN=test_123
 ```
+Variables are automatically injected into HTTP URLs, headers, and bodies using the `${VAR_NAME}` syntax.
 
-#### 5. **Keyboard** - Virtual keyboard
+## ⌨️ Virtual Keyboard
+The keyboard layout is fully recursive. You can define custom layouts in YAML:
 ```yaml
 - label: "Keyboard"
   type: keyboard
   layout:
-    - "ABCDEF"
-    - "GHIJKL"
-    - "MNOPQR"
-    - "STUVWX"
-    - "YZ"
+    - "EANRCV"
+    - "JILPHW"
+    - "SUDGK"
 ```
+Special actions like `space`, `delete`, and `speak` (TTS) are automatically added to the keyboard view.
 
-### Common Properties
+## 🛠️ Development Commands
 
-```yaml
-label: "My Button"           # Displayed text
-type: "tts"                  # Action type
-width: 2                     # Width in cells
-height: 1                    # Height in cells
-position:                    # Position in grid
-  x: 0
-  y: 0
-color:                       # Custom color
-  r: 255
-  g: 100
-  b: 50
-  a: 255
-highlight_color:             # Color during scan
-  r: 0
-  g: 255
-  b: 0
-  a: 255
-group_membership: 0          # Group ID for scanning
-timer: 1000                  # Scan duration (containers)
-```
-
-## Usage
-
-### Scanning Navigation
-
-1. **Press ENTER** to start scanning
-2. The system first scans **groups** (if configured)
-3. Then **rows** of the grid
-4. Finally **items** in the selected row
-5. Press **ENTER** at each step to validate your choice
-
-### Browser Mode
-
-When you activate a `browser` type button:
-- The browser opens in full screen
-- A small control window appears with an "Exit" button
-- Click "Exit" to close the browser and return to Flexigo
-
-### Virtual Keyboard
-
-1. Activate a `keyboard` type button
-2. Use scanning to select letters
-3. Special buttons available:
-   - **Space**: Add a space
-   - **Delete**: Remove the last character
-   - **Speak**: Pronounce the entered text
-   - **← Back**: Return to previous menu
-
-## 🔐 Environment Variables
-
-Create a `.env` file at the project root:
-
-```bash
-# Weather APIs
-OPENWEATHER_API_KEY=your_api_key
-
-# Home Assistant
-HOME_ASSISTANT_URL=http://homeassistant.local:8123
-HOME_ASSISTANT_TOKEN=your_long_token
-
-# Webhooks
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/XXX
-
-# GitHub
-GITHUB_TOKEN=ghp_your_token
-
-# Other
-DUMMY_TOKEN=test123
-```
-
-Variables are automatically replaced in URLs, headers, and body of HTTP requests using the `${VARIABLE_NAME}` syntax.
-
-## 📚 Usage Examples
-
-### Example 1: Home Automation with Home Assistant
-
-```yaml
-- label: "Home Control"
-  type: container
-  grid_width: 3
-  grid_height: 2
-  children:
-    - label: "💡 Living Room Light"
-      type: http
-      method: POST
-      url: "${HOME_ASSISTANT_URL}/api/services/light/toggle"
-      headers:
-        Authorization: "Bearer ${HOME_ASSISTANT_TOKEN}"
-      body: '{"entity_id": "light.living_room"}'
-      
-    - label: "🌡️ Temperature"
-      type: http
-      method: GET
-      url: "${HOME_ASSISTANT_URL}/api/states/sensor.living_room_temperature"
-      headers:
-        Authorization: "Bearer ${HOME_ASSISTANT_TOKEN}"
-```
-
-### Example 2: Quick Communication
-
-```yaml
-- label: "Communication"
-  type: container
-  grid_width: 2
-  grid_height: 3
-  children:
-    - label: "Hello"
-      type: tts
-      text: "Hello, how are you?"
-      
-    - label: "Thank you"
-      type: tts
-      text: "Thank you very much!"
-      
-    - label: "I need help"
-      type: tts
-      text: "I need help please"
-```
-
-### Example 3: Integration with Public APIs
-
-```yaml
-- label: "Information"
-  type: container
-  grid_width: 3
-  grid_height: 2
-  children:
-    - label: "🌤️ Weather"
-      type: http
-      method: GET
-      url: "https://wttr.in/Paris?format=j1"
-      
-    - label: "😂 Joke"
-      type: http
-      method: GET
-      url: "https://official-joke-api.appspot.com/random_joke"
-      
-    - label: "🐱 Cat Fact"
-      type: http
-      method: GET
-      url: "https://catfact.ninja/fact"
-```
-
-## 🧪 Tests
-
-```bash
-# Run all tests
-make test
-
-# Tests with coverage (generates HTML report)
-make test-coverage
-
-# Run tests manually
-go test ./...
-go test -cover ./...
-
-# Tests for a specific package
-go test ./internal/http
-go test ./internal/config
-go test ./internal/orchestration
-```
-
-## 🛠️ Development
-
-### Available Make Commands
-
-```bash
-make help              # Show all available commands
-make build             # Build for current platform
-make run               # Build and run
-make test              # Run tests
-make test-coverage     # Run tests with coverage report
-make clean             # Clean build artifacts
-make fmt               # Format Go and Rust code
-make lint              # Run linters (requires golangci-lint)
-make install           # Install system-wide
-make release           # Create release archives for all platforms
-```
-
-### Module Structure
-
-- **browser**: Browser launch management (Chrome, Firefox)
-- **config**: YAML loading + default value application
-- **http**: HTTP client with env variable support
-- **orchestration**: Coordination between TTS, HTTP and other actions
-- **tts**: Interface with Rust binary for text-to-speech
-- **types**: Data structure definitions (Action, Config, Color)
-- **ui**: Graphical interface with Fyne, scanning management
-
-### Adding a New Action Type
-
-1. Add the type in `types/actions.go`
-2. Implement the logic in `orchestration/app.go`
-3. Handle execution in `ui/app.go` (`ExecuteAction` function)
-4. Add corresponding tests
-
-## 🐛 Troubleshooting
-
-### TTS not working
-- Verify that `bin/flexigo-tts` exists and is executable
-- Test the binary manually: `./bin/flexigo-tts "Hello"`
-
-### HTTP requests failing
-- Check your environment variables in `.env`
-- Look at the logs in the console
-- Test URLs with curl first
-
-### Browser not launching
-- Check the browser path in `browser_path`
-- Use default paths by omitting `browser_path`
-
-### Interface not responding
-- Make sure you're using the **ENTER** key to validate
-- The scan timer might be too fast, increase the value
-
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-
-1. Fork the project
-2. Create a branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
-## 👤 Author
-
-**Antoine Debroye**
-- GitHub: [@DebroyeAntoine](https://github.com/DebroyeAntoine)
-
-## 🙏 Acknowledgments
-
-- [Fyne](https://fyne.io/) - Go GUI framework
-- [tts-rs](https://github.com/ndarilek/tts-rs) - Rust TTS library
-- All public APIs used in examples
+| Command | Description |
+| :--- | :--- |
+| `make build-rust` | Recompile only the Rust TTS engine |
+| `make build-browser` | Recompile only the Electron Browser |
+| `make build-go` | Recompile only the Go core |
+| `make clean` | Remove all binaries and build artifacts |
 
 ---
 
-**Note**: This project is designed to improve accessibility and autonomy for people with specific communication needs. If you have suggestions for improvements, feel free to open an issue! 💙
+**Author:** Antoine Debroye  
