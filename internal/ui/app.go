@@ -23,16 +23,18 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
+// GridState defines the current navigation/focus level in the scanning interface
 type GridState int
 
 const (
-	StateIdle GridState = iota
-	StateGroup
-	StateRows
-	StateItems
-	StateBrowserMode
+	StateIdle        GridState = iota // No active scan
+	StateGroup                        // Scanning blocks of items
+	StateRows                         // Scanning rows within a group
+	StateItems                        // Scanning individual items within a row
+	StateBrowserMode                  // Interface is hidden, browser is active
 )
 
+// UIManager manages the UI state, navigation stack, and the scanning selection logic
 type UIManager struct {
 	state            GridState
 	window           fyne.Window
@@ -48,7 +50,7 @@ type UIManager struct {
 	rowScanDone      chan bool
 	groupScanDone    chan bool
 	itemScanDone     chan bool
-	timer            int
+	timer            int // Scanning interval in milliseconds
 	buttonToAction   map[*ColorButton]types.Action
 	blocks           []types.Action
 	keyboardLayout   []string
@@ -57,33 +59,35 @@ type UIManager struct {
 	orchestration    *orchestration.Orchestration
 	voice            string
 
-	// Browser mode avec nouvelle fenêtre
+	// Browser mode management
 	browserExecutor      *browser.BrowserExecutor
-	browserControlWindow fyne.Window // Nouvelle petite fenêtre de contrôle
+	browserControlWindow fyne.Window
 	browserActive        bool
 	currentCmd           *exec.Cmd
 }
 
-// Thème personnalisé pour contrôler les couleurs
+// customTheme defines visual overrides for the Fyne application
 type customTheme struct {
 	fyne.Theme
 }
 
+// Size returns custom sizes for specific text types to improve accessibility
 func (t *customTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {
 	case theme.SizeNameText:
-		return 78 // Taille du texte normal (votre Entry)
+		return 78
 	case theme.SizeNameHeadingText:
-		return 64 // Taille des titres
+		return 64
 	case theme.SizeNameSubHeadingText:
-		return 56 // Taille des sous-titres
+		return 56
 	case theme.SizeNameCaptionText:
-		return 32 // Taille des petits textes
+		return 32
 	default:
 		return t.Theme.Size(name)
 	}
 }
 
+// Color returns custom colors for the application theme
 func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch name {
 	case theme.ColorNameInputBackground:
@@ -95,6 +99,7 @@ func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant)
 	}
 }
 
+// NewUIManager initializes a new UI manager with default values
 func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	return &UIManager{
 		state:            StateIdle,
@@ -105,11 +110,9 @@ func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	}
 }
 
+// getBrowserPath returns the relative path to the browser binary based on the OS
 func getBrowserPath() string {
-	// En développement, on peut pointer vers le dossier bin
-	// En production, le binaire sera à côté de l'app
 	basePath := "./bin/browser/"
-
 	switch runtime.GOOS {
 	case "windows":
 		return basePath + "win-unpacked/flexigo-browser.exe"
@@ -122,10 +125,11 @@ func getBrowserPath() string {
 	}
 }
 
+// EnterBrowserMode hides the main UI and launches the external browser process
 func (ui *UIManager) EnterBrowserMode(url string) {
 	path := getBrowserPath()
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.Printf("Erreur : binaire browser introuvable à %s", path)
+		log.Printf("Error: browser binary not found at %s", path)
 		return
 	}
 
@@ -135,12 +139,13 @@ func (ui *UIManager) EnterBrowserMode(url string) {
 	ui.currentCmd = exec.Command(path, url)
 	err := ui.currentCmd.Start()
 	if err != nil {
-		log.Println("Erreur au lancement du browser:", err)
+		log.Println("Error launching browser:", err)
 		ui.window.Show()
 		ui.state = StateIdle
 		return
 	}
 
+	// Wait for browser exit in a goroutine to restore the UI
 	go func() {
 		ui.currentCmd.Wait()
 		fyne.Do(func() {
@@ -151,7 +156,7 @@ func (ui *UIManager) EnterBrowserMode(url string) {
 	}()
 }
 
-// ExitBrowserMode ferme le navigateur et la fenêtre de contrôle
+// ExitBrowserMode closes the browser process and the control window
 func (ui *UIManager) ExitBrowserMode() error {
 	log.Println("Exiting browser mode...")
 
@@ -159,7 +164,6 @@ func (ui *UIManager) ExitBrowserMode() error {
 		return nil
 	}
 
-	// Ferme le navigateur
 	if ui.browserExecutor != nil {
 		if err := ui.browserExecutor.Close(); err != nil {
 			log.Printf("Warning: error closing browser: %v", err)
@@ -167,7 +171,6 @@ func (ui *UIManager) ExitBrowserMode() error {
 		ui.browserExecutor = nil
 	}
 
-	// Ferme la fenêtre de contrôle
 	if ui.browserControlWindow != nil {
 		ui.browserControlWindow.Close()
 		ui.browserControlWindow = nil
@@ -175,14 +178,12 @@ func (ui *UIManager) ExitBrowserMode() error {
 
 	ui.browserActive = false
 	ui.state = StateIdle
-
-	// Restaure la fenêtre principale si elle était cachée
-	// ui.window.Show()
-
 	log.Println("Browser mode exited")
 	return nil
 }
 
+// HandleEnterKey processes the selection event (Enter key or switch click)
+// based on the current scanning state.
 func (ui *UIManager) HandleEnterKey() {
 	if ui.state == StateBrowserMode {
 		if ui.currentCmd != nil && ui.currentCmd.Process != nil {
@@ -207,7 +208,7 @@ func (ui *UIManager) HandleEnterKey() {
 		ui.rowScanDone <- true
 		ui.state = StateItems
 
-		// Special case for lines with only one element in
+		// Instant selection if the row contains only one item
 		if len(ui.selectedRow) == 1 {
 			ui.state = StateIdle
 			action := ui.buttonToAction[ui.selectedRow[0]]
@@ -235,12 +236,14 @@ func (ui *UIManager) refreshUI() {
 	ui.window.SetContent(container.NewBorder(nil, nil, nil, nil, ui.contentContainer))
 }
 
+// OpenVirtualKeyboard navigates to the virtual keyboard view
 func (ui *UIManager) OpenVirtualKeyboard() {
 	ui.navigationStack = append(ui.navigationStack, ui.currentContainer)
 	ui.ShowVirtualKeyboardFromLayout()
 	ui.setState(StateIdle)
 }
 
+// ExecuteKeyboardAction handles specific logic for virtual keyboard keys
 func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 	switch action.Type {
 	case "char":
@@ -264,11 +267,12 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 	}
 }
 
+// updateView re-renders the grid based on a container action and updates the navigation
 func (ui *UIManager) updateView(containerAction types.Action) {
 	ui.currentContainer = containerAction
 	ui.blocks = containerAction.Children
 
-	// if this is not the root container add a back button
+	// Add a back button if we are not at the root level
 	if len(ui.navigationStack) > 0 {
 		backAction := types.Action{
 			Label:    "← Retour",
@@ -278,7 +282,7 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 			Position: types.Position{X: 0, Y: 0},
 		}
 
-		// Do a shift +1 on all other blocks below
+		// Shift existing blocks down to accommodate the back button
 		adjustedBlocks := []types.Action{backAction}
 		for _, block := range containerAction.Children {
 			adjustedBlock := block
@@ -286,7 +290,6 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 			adjustedBlocks = append(adjustedBlocks, adjustedBlock)
 		}
 
-		// Change the container by adding one extra row
 		adjustedContainer := containerAction
 		adjustedContainer.Children = adjustedBlocks
 		adjustedContainer.GridHeight += 1
@@ -305,6 +308,7 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 	ui.contentContainer.Refresh()
 }
 
+// ExecuteAction triggers the logic associated with a selected block
 func (ui *UIManager) ExecuteAction(block types.Action) {
 	if block.Type == "back" {
 		if len(ui.navigationStack) > 0 {
@@ -325,11 +329,6 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 	}
 
 	if block.Type == "browser" {
-		browserPath := block.BrowserPath
-		if browserPath == "" {
-			browserPath = browser.GetDefaultBrowserPath()
-		}
-
 		ui.EnterBrowserMode(block.BrowserURL)
 		return
 	}
@@ -344,6 +343,7 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 		return
 	}
 
+	// External hardware/service integrations
 	if block.Type == "tts" {
 		if err := ui.orchestration.ExecuteTTSAction(block); err != nil {
 			log.Printf("TTS action failed: %v", err)
@@ -361,10 +361,12 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 	}
 
 	ui.setState(StateIdle)
-	fmt.Println("Action lancée :", block.Label)
+	fmt.Println("Action triggered:", block.Label)
 }
 
-// [... Le reste des fonctions de scan restent identiques ...]
+// --- SCANNING LOGIC ---
+
+// StartGroupScan begins the automated highlighting of groups
 func (ui *UIManager) StartGroupScan() {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentGroup := 0
@@ -421,6 +423,7 @@ func highlightGroup(group [][][]*ColorButton, index int) {
 	}
 }
 
+// StartRowsScan begins the automated highlighting of rows
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentRow := 0
@@ -473,6 +476,7 @@ func highlightRow(rows [][]*ColorButton, index int) {
 	}
 }
 
+// StartItemScan begins the automated highlighting of individual buttons in a row
 func (ui *UIManager) StartItemScan() {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentCol := 0
@@ -521,6 +525,7 @@ func highlightItem(items []*ColorButton, index int) {
 	}
 }
 
+// ShowCustomActionGrid generates a grid of actions, used primarily for the virtual keyboard
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows := [][]*ColorButton{}
 
@@ -598,7 +603,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	ui.contentContainer.Objects = []fyne.CanvasObject{scrollable}
 	ui.contentContainer.Refresh()
 
-	// Ajouter le bouton retour comme première ligne pour qu'il soit scannable
+	// Make the back button scannable by adding it as the first row
 	backRow := []*ColorButton{backBtn}
 	buttonRows = append([][]*ColorButton{backRow}, buttonRows...)
 
@@ -606,6 +611,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	ui.rows = buttonRows
 }
 
+// ShowVirtualKeyboardFromLayout prepares the keyboard actions based on the configuration layout
 func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	if len(ui.keyboardLayout) == 0 {
 		return
@@ -623,7 +629,7 @@ func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 		rows = append(rows, row)
 	}
 
-	// Ajoute les boutons spéciaux à la fin
+	// Add special function keys
 	rows = append(rows, []types.Action{
 		{Label: "Espace", Type: "space"},
 		{Label: "Effacer", Type: "delete"},
@@ -633,12 +639,12 @@ func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	ui.ShowCustomActionGrid(rows)
 }
 
+// LoadKeyboard recursively searches for a keyboard action in the config blocks
 func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 	for _, action := range *actions {
 		if action.Type == "keyboard" {
 			if len(action.Layout) != 0 {
 				ui.keyboardLayout = action.Layout
-				fmt.Println("coucou")
 				return
 			}
 		}
@@ -648,12 +654,12 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 	}
 }
 
-// StartUI show the graphical interface with blocks defined in conf
+// StartUI initializes the Fyne application and main window components
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")
 
-	// Applique le thème personnalisé
+	// Apply accessibility theme
 	myApp.Settings().SetTheme(&customTheme{
 		Theme: myApp.Settings().Theme(),
 	})
@@ -676,31 +682,36 @@ func StartUI(cfg *types.Config) error {
 
 		irSender, irErr = ir.NewIRSender(cfg.IRBackend, irConfig)
 		if irErr != nil {
-			// Ici on s'arrête et on retourne l'erreur avant de lancer l'UI
-			fmt.Println("test")
-			return fmt.Errorf("impossible d'initialiser le module IR sur %s : %w", cfg.IRSerialPort, irErr)
+			return fmt.Errorf("failed to initialize IR module on %s: %w", cfg.IRSerialPort, irErr)
 		}
-
 	}
 
-	orchestration := orchestration.Orchestration{TTS: localTTS, Cfg: cfg, HTTP: httpClient, IR: irSender}
+	orchestration := orchestration.Orchestration{
+		TTS:  localTTS,
+		Cfg:  cfg,
+		HTTP: httpClient,
+		IR:   irSender,
+	}
+
 	myWindow.SetFullScreen(true)
 
-	// IMPORTANT: Passer l'app en plus du window
 	myUI := NewUIManager(myWindow, myApp)
 	myUI.orchestration = &orchestration
 	myUI.buttonToAction = make(map[*ColorButton]types.Action, 10)
 	myUI.voice = cfg.Voice
+
+	// Register keyboard input
 	myWindow.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		if k.Name == fyne.KeyReturn {
 			myUI.HandleEnterKey()
 		}
 	})
 
+	// Register external switch input (via IR/Serial)
 	if s, ok := irSender.(*ir.SerialIRSender); ok {
 		s.ListenForEvents(func(msg string) {
 			if msg == "BTN:CLICK" {
-				// Utiliser fyne.Do pour s'assurer que l'action s'exécute sur le thread UI
+				// Use fyne.Do to ensure UI updates happen on the main thread
 				fyne.Do(func() {
 					myUI.HandleEnterKey()
 				})
@@ -708,13 +719,12 @@ func StartUI(cfg *types.Config) error {
 		})
 	}
 
-	// Start after the main bloc
 	if len(cfg.Blocks) == 0 {
-		fmt.Println("No bloc found.")
+		fmt.Println("No blocks found in config.")
 		return nil
 	}
-	myUI.timer = cfg.Blocks[0].Timer
 
+	myUI.timer = cfg.Blocks[0].Timer
 	myUI.LoadKeyboard(&cfg.Blocks)
 	myUI.updateView(cfg.Blocks[0])
 	myUI.refreshUI()
@@ -725,7 +735,7 @@ func StartUI(cfg *types.Config) error {
 
 	myWindow.ShowAndRun()
 
-	// Cleanup
+	// Clean up resources on exit
 	if myUI.browserExecutor != nil {
 		myUI.browserExecutor.Close()
 	}
