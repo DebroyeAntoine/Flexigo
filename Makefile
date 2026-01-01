@@ -1,110 +1,81 @@
 # ============================================
-# Flexigo – Makefile complet multiplateforme
-# Go (Fyne) + Rust TTS + Electron Browser
+# Flexigo – Makefile Robuste (Go + Rust + NPM)
 # ============================================
-
-GO_BUILD_FLAGS=-ldflags="-s -w"
-RUST_BUILD_FLAGS=--release
 
 BIN=bin
 RUST_DIR=rust/tts-rs
 BROWSER_DIR=browser
-# Dossier de sortie pour electron-builder (défini dans package.json)
-BROWSER_DIST=$(BIN)/browser 
+# On pointe vers le dossier du package, pas le fichier
+GO_PKG=./cmd
+APP_NAME=flexigo
+APP_ID=com.flexigo.app
+APP_VERSION=1.0.0
 
-# Détection de l'OS pour le build natif
-ifeq ($(OS),Windows_NT)
-    PLATFORM=win
-    BROWSER_EXE=$(BROWSER_DIST)/win-unpacked/flexigo-browser.exe
-else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Linux)
-        PLATFORM=linux
-        BROWSER_EXE=$(BROWSER_DIST)/linux-unpacked/flexigo-browser
-    endif
-    ifeq ($(UNAME_S),Darwin)
-        PLATFORM=mac
-        BROWSER_EXE=$(BROWSER_DIST)/mac/flexigo-browser.app/Contents/MacOS/flexigo-browser
-    endif
-endif
+# Couleurs
+GREEN  := $(shell tput setaf 2)
+YELLOW := $(shell tput setaf 3)
+RESET  := $(shell tput sgr0)
 
-.PHONY: help
+.PHONY: help deps build-all clean
+
 help:
-	@echo "  make deps                → Installe Go, Rust et Node deps"
-	@echo "  make build               → Build Go + Rust + Electron (natif)"
-	@echo "  make build-browser       → Build Electron uniquement"
-	@echo "  make build-all           → Tout build pour toutes les plateformes"
+	@echo "$(GREEN)Cibles :$(RESET) make deps, make build-all, make clean"
 
 # --------------------------------------------
-# Dépendances
+# 1. Dépendances & Préparation
 # --------------------------------------------
-.PHONY: deps
 deps:
+	@echo "$(YELLOW)➜ Préparation des modules Go...$(RESET)"
+	go mod tidy
 	go mod download
-	rustup update
-	# Installation dépendances Node/Electron
 	cd $(BROWSER_DIR) && npm install
 	go install fyne.io/fyne/v2/cmd/fyne@latest
 	go install github.com/fyne-io/fyne-cross@latest
-	@echo "✔ Toutes les dépendances (Go/Rust/Node) sont installées."
+	rustup target add x86_64-pc-windows-gnu x86_64-unknown-linux-gnu
+	rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
 # --------------------------------------------
-# Build natif
+# 2. Cross-compilation
 # --------------------------------------------
-.PHONY: build-go
-build-go:
-	@mkdir -p $(BIN)
-	go build $(GO_BUILD_FLAGS) -o $(BIN)/flexigo ./cmd/main.go
 
-.PHONY: build-rust
-build-rust:
-	cd $(RUST_DIR) && cargo build $(RUST_BUILD_FLAGS)
-	cp $(RUST_DIR)/target/release/tts-rs $(BIN)/flexigo-tts
+cross-windows:
+	@echo "$(YELLOW)➜ Building Windows x64...$(RESET)"
+	# Go : Utilisation de ./cmd et suppression du cache pour éviter les erreurs de "main undeclared"
+	fyne-cross windows --arch=amd64 --app-id=$(APP_ID) --app-version=$(APP_VERSION) --output=$(APP_NAME).exe --no-cache $(GO_PKG)
+	# Rust
+	cd $(RUST_DIR) && cargo build --release --target=x86_64-pc-windows-gnu
+	# Electron (Architecture x64 forcée)
+	cd $(BROWSER_DIR) && npm run build:win -- --x64
 
-.PHONY: build-browser
-build-browser:
-	@mkdir -p $(BROWSER_DIST)
-	# On lance le script build de package.json selon la plateforme détectée
-	cd $(BROWSER_DIR) && npm run build:$(PLATFORM)
-	@echo "✔ Build Electron terminé dans $(BROWSER_DIST)"
+cross-linux:
+	@echo "$(YELLOW)➜ Building Linux x64...$(RESET)"
+	# Go : On utilise --no-cache pour forcer Linux à re-scanner le dossier ./cmd
+	fyne-cross linux --arch=amd64 --app-id=$(APP_ID) --output=$(APP_NAME) --no-cache $(GO_PKG)
+	# Rust
+	@echo "$(YELLOW)➜ Building Rust for Linux (via Docker)...$(RESET)"
+	docker run --rm --platform linux/amd64 -v $(shell pwd):/app -w /app/$(RUST_DIR) rust:1.82-bookworm /bin/bash -c "\
+		apt-get update && \
+		apt-get install -y libspeechd-dev pkg-config clang libclang-dev && \
+		cargo build --release"
+	# Electron (Architecture x64 forcée)
+	cd $(BROWSER_DIR) && npm run build:linux -- --x64
 
-.PHONY: build
-build: build-go build-rust build-browser
-	@echo "✔ Build natif complet terminé."
-
-# --------------------------------------------
-# Cross-compilation Electron
-# --------------------------------------------
-# Note: electron-builder permet de cross-compiler facilement
-.PHONY: cross-browser-win
-cross-browser-win:
-	cd $(BROWSER_DIR) && npm run build:win
-
-.PHONY: cross-browser-linux
-cross-browser-linux:
-	cd $(BROWSER_DIR) && npm run build:linux
-
-.PHONY: cross-browser-mac
-cross-browser-mac:
+cross-mac:
+	@echo "$(YELLOW)➜ Building macOS (Universal)...$(RESET)"
+	fyne-cross darwin --arch=amd64,arm64 --app-id=$(APP_ID) --output=$(APP_NAME) $(GO_PKG)
+	cd $(RUST_DIR) && cargo build --release --target=x86_64-apple-darwin
+	cd $(RUST_DIR) && cargo build --release --target=aarch64-apple-darwin
 	cd $(BROWSER_DIR) && npm run build:mac
 
-# --------------------------------------------
-# Build all platforms
-# --------------------------------------------
-.PHONY: build-all
-build-all: \
-	cross-linux-amd64 cross-linux-arm64 \
-	cross-windows-amd64 \
-	cross-darwin-amd64 cross-darwin-arm64 \
-	rust-linux-amd64 rust-linux-arm64 \
-	rust-windows-amd64 \
-	rust-darwin-amd64 rust-darwin-arm64 \
-	cross-browser-win cross-browser-linux cross-browser-mac
-	@echo "✔ Build total terminé."
+build-all: clean cross-windows cross-linux cross-mac
+	@echo "$(GREEN)✔ Build multiplateforme terminé.$(RESET)"
 
-.PHONY: clean
+# --------------------------------------------
+# 3. Nettoyage
+# --------------------------------------------
 clean:
-	rm -rf bin/
-	rm -rf fyne-cross/
+	@echo "$(YELLOW)➜ Nettoyage des binaires et fichiers temporaires...$(RESET)"
+	rm -f ./main.go
+	rm -rf $(BIN) fyne-cross/
 	cd $(RUST_DIR) && cargo clean
-	rm -rf $(BROWSER_DIR)/dist
+	cd $(BROWSER_DIR) && rm -rf dist/
