@@ -6,7 +6,9 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -60,10 +62,7 @@ type UIManager struct {
 	voice            string
 
 	// Browser mode management
-	browserExecutor      *browser.BrowserExecutor
-	browserControlWindow fyne.Window
-	browserActive        bool
-	currentCmd           *exec.Cmd
+	currentCmd *exec.Cmd
 }
 
 // customTheme defines visual overrides for the Fyne application
@@ -106,20 +105,48 @@ func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 		window:           window,
 		app:              app,
 		contentContainer: container.NewStack(container.NewVBox()),
-		browserActive:    false,
 	}
+}
+
+func getRootDir() string {
+	exePath, err := os.Executable()
+	if err == nil {
+		root := filepath.Dir(exePath)
+
+		if !strings.Contains(root, "go-build") {
+			return root
+		}
+	}
+
+	// Fallback dev
+	wd, _ := os.Getwd()
+	return wd
 }
 
 // getBrowserPath returns the relative path to the browser binary based on the OS
 func getBrowserPath() string {
-	basePath := "./bin/browser/"
+	exePath, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	rootFolder := filepath.Dir(exePath)
+	log.Println(rootFolder)
+
 	switch runtime.GOOS {
 	case "windows":
-		return basePath + "win-unpacked/flexigo-browser.exe"
-	case "darwin":
-		return basePath + "mac-arm64/flexigo-browser.app/Contents/MacOS/flexigo-browser"
+		// Structure : flexigo.exe + browser/flexigo-browser.exe
+		return filepath.Join(rootFolder, "browser", "flexigo-browser.exe")
+
 	case "linux":
-		return basePath + "linux-unpacked/flexigo-browser"
+		// Structure : flexigo + browser/flexigo-browser
+		return filepath.Join(rootFolder, "browser", "flexigo-browser")
+
+	case "darwin":
+		if filepath.Base(filepath.Dir(rootFolder)) == "Contents" {
+			return filepath.Join(rootFolder, "..", "Resources", "browser", "flexigo-browser.app", "Contents", "MacOS", "flexigo-browser")
+		}
+		return filepath.Join(getRootDir(), "bin", "browser", "mac-arm64", "flexigo-browser.app", "Contents", "MacOS", "flexigo-browser")
+
 	default:
 		return ""
 	}
@@ -726,11 +753,6 @@ func StartUI(cfg *types.Config) error {
 	))
 
 	myWindow.ShowAndRun()
-
-	// Clean up resources on exit
-	if myUI.browserExecutor != nil {
-		myUI.browserExecutor.Close()
-	}
 
 	return nil
 }

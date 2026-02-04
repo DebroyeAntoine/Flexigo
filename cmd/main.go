@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.LoadConfig("assets/config.yaml")
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("error while loading configuration: %v", err)
 	}

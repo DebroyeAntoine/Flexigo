@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 
+	"github.com/DebroyeAntoine/flexigo/assets"
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
@@ -138,7 +139,7 @@ func UniformizeVoice(cfg *types.Config) {
 	applyDefaultVoice(cfg.Blocks, cfg.DefaultVoice)
 }
 
-func LoadConfig(path string) (*types.Config, error) {
+func loadFromFile(path string) (*types.Config, error) {
 	_ = godotenv.Load(".env")
 
 	data, err := os.ReadFile(filepath.Clean(path))
@@ -161,4 +162,24 @@ func LoadConfig(path string) (*types.Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func LoadConfig() (*types.Config, error) {
+	userConfigDir, _ := os.UserConfigDir()
+	appConfigPath := filepath.Join(userConfigDir, "Flexigo", "config.yaml")
+
+	if _, err := os.Stat(appConfigPath); os.IsNotExist(err) {
+		_ = os.MkdirAll(filepath.Dir(appConfigPath), 0o755)
+
+		// 2. UTILISE LE PACKAGE ASSETS POUR LIRE LE FICHIER
+		// Note : le chemin ici est relatif à la racine du package assets, donc juste "config.yaml"
+		data, err := assets.ConfigFS.ReadFile("config.yaml")
+		if err != nil {
+			return nil, fmt.Errorf("impossible de lire la config par défaut : %v", err)
+		}
+
+		_ = os.WriteFile(appConfigPath, data, 0o644)
+	}
+
+	return loadFromFile(appConfigPath)
 }

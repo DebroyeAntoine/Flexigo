@@ -1,7 +1,7 @@
 voice: "Amélie"
-ir_backend: "serial"
-ir_serial_port: "/dev/tty.usbmodemHIDGD1"  # Linux/macOS: /dev/ttyUSB0, Windows: COM3
-ir_baud_rate: 9600
+#ir_backend: "serial"
+#ir_serial_port: "/dev/tty.usbmodemHIDGD1"  # Linux/macOS: /dev/ttyUSB0, Windows: COM3
+#ir_baud_rate: 9600
 blocks:
   - label: "Menu Principal"
     type: container
@@ -20,9 +20,7 @@ blocks:
         type: keyboard
         width: 1
         height: 1
-        position:
-          x: 0
-          y: 0
+        position: {x: 0, y: 0}
         color:
           r: 0
           g: 200
@@ -44,7 +42,7 @@ blocks:
         type: browser
         browser_url: "https://developer.mozilla.org"
         # Exemple pour Firefox sur Linux
-        browser_path: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        #browser_path: "bin/browser/mac-arm64/flexigo-browser.app/"
 
         width: 2
         height: 2
@@ -106,6 +104,20 @@ blocks:
           x: 2
           y: 5
         children:
+          - label: "🦊 Firefox Web"
+            type: browser
+            browser_url: "https://developer.mozilla.org"
+
+            width: 2
+            height: 2
+            position:
+              x: 1
+              y: 1
+            color:
+              r: 255
+              g: 50
+              b: 0
+              a: 255
           - label: "Allumer la TV2"
             width: 1
             height: 1
