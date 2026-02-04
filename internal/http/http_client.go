@@ -11,10 +11,12 @@ import (
 	"time"
 )
 
+// HTTPClient wraps net/http with defaults suited for Flexigo actions.
 type HTTPClient struct {
 	client *http.Client
 }
 
+// NewHTTPClient returns a client with a reasonable timeout for device APIs.
 func NewHTTPClient() *HTTPClient {
 	return &HTTPClient{
 		client: &http.Client{
@@ -23,6 +25,7 @@ func NewHTTPClient() *HTTPClient {
 	}
 }
 
+// expandEnvVars replaces ${VAR} tokens with environment values when present.
 func expandEnvVars(text string) string {
 	re := regexp.MustCompile(`\$\{([^}]+)\}`)
 	return re.ReplaceAllStringFunc(text, func(match string) string {
@@ -34,6 +37,7 @@ func expandEnvVars(text string) string {
 	})
 }
 
+// ExecuteRequest performs an HTTP call, expanding env vars in URL, headers, and body.
 func (h *HTTPClient) ExecuteRequest(method, url string, headers map[string]string, body string) error {
 	url = expandEnvVars(url)
 	body = expandEnvVars(body)

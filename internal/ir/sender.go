@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-// IRCommand représente une commande infrarouge
+// IRCommand représente une commande infrarouge.
 type IRCommand struct {
 	Device   string // Ex: "tv", "ac", "stereo"
 	Command  string // Ex: "power", "volume_up", "channel_1"
@@ -14,7 +14,7 @@ type IRCommand struct {
 	Repeat   int    // Nombre de répétitions (0 = 1 fois)
 }
 
-// IRSender interface pour l'envoi de commandes IR
+// IRSender interface pour l'envoi de commandes IR.
 type IRSender interface {
 	Send(cmd IRCommand) error
 	SendRaw(protocol string, code string, repeat int) error
@@ -22,7 +22,7 @@ type IRSender interface {
 	Close() error
 }
 
-// NewIRSender crée un nouveau sender IR selon le backend spécifié
+// NewIRSender crée un nouveau sender IR selon le backend spécifié.
 func NewIRSender(backend string, config IRConfig) (IRSender, error) {
 	switch backend {
 	case "serial":
@@ -34,7 +34,7 @@ func NewIRSender(backend string, config IRConfig) (IRSender, error) {
 	}
 }
 
-// IRConfig contient la configuration pour l'IR
+// IRConfig contient la configuration pour l'IR.
 type IRConfig struct {
 	// Serial configuration
 	SerialPort string // Ex: "/dev/ttyUSB0", "COM3", "/dev/cu.usbserial"
@@ -45,7 +45,7 @@ type IRConfig struct {
 	Timeout      int    // Timeout en ms
 }
 
-// DefaultIRConfig retourne une configuration par défaut
+// DefaultIRConfig retourne une configuration par défaut.
 func DefaultIRConfig() IRConfig {
 	return IRConfig{
 		SerialPort:   "/dev/ttyUSB0",
@@ -55,7 +55,7 @@ func DefaultIRConfig() IRConfig {
 	}
 }
 
-// LogCommand log une commande IR (utile pour debug)
+// LogCommand log une commande IR (utile pour debug).
 func LogCommand(cmd IRCommand) {
 	log.Printf("IR Command: device=%s, command=%s, protocol=%s, code=%s, repeat=%d",
 		cmd.Device, cmd.Command, cmd.Protocol, cmd.Code, cmd.Repeat)

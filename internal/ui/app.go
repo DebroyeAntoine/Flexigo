@@ -25,7 +25,7 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
-// GridState defines the current navigation/focus level in the scanning interface
+// GridState defines the current navigation/focus level in the scanning interface.
 type GridState int
 
 const (
@@ -36,7 +36,7 @@ const (
 	StateBrowserMode                  // Interface is hidden, browser is active
 )
 
-// UIManager manages the UI state, navigation stack, and the scanning selection logic
+// UIManager manages the UI state, navigation stack, and the scanning selection logic.
 type UIManager struct {
 	state            GridState
 	window           fyne.Window
@@ -65,12 +65,12 @@ type UIManager struct {
 	currentCmd *exec.Cmd
 }
 
-// customTheme defines visual overrides for the Fyne application
+// customTheme defines visual overrides for the Fyne application.
 type customTheme struct {
 	fyne.Theme
 }
 
-// Size returns custom sizes for specific text types to improve accessibility
+// Size returns custom sizes for specific text types to improve accessibility.
 func (t *customTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {
 	case theme.SizeNameText:
@@ -86,7 +86,7 @@ func (t *customTheme) Size(name fyne.ThemeSizeName) float32 {
 	}
 }
 
-// Color returns custom colors for the application theme
+// Color returns custom colors for the application theme.
 func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch name {
 	case theme.ColorNameInputBackground:
@@ -98,7 +98,7 @@ func (t *customTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant)
 	}
 }
 
-// NewUIManager initializes a new UI manager with default values
+// NewUIManager initializes a new UI manager with default values.
 func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	return &UIManager{
 		state:            StateIdle,
@@ -108,6 +108,7 @@ func NewUIManager(window fyne.Window, app fyne.App) *UIManager {
 	}
 }
 
+// getRootDir resolves a stable root folder for assets in dev and packaged builds.
 func getRootDir() string {
 	exePath, err := os.Executable()
 	if err == nil {
@@ -123,14 +124,13 @@ func getRootDir() string {
 	return wd
 }
 
-// getBrowserPath returns the relative path to the browser binary based on the OS
+// getBrowserPath returns the relative path to the browser binary based on the OS.
 func getBrowserPath() string {
 	exePath, err := os.Executable()
 	if err != nil {
 		return ""
 	}
 	rootFolder := filepath.Dir(exePath)
-	log.Println(rootFolder)
 
 	switch runtime.GOOS {
 	case "windows":
@@ -152,7 +152,7 @@ func getBrowserPath() string {
 	}
 }
 
-// EnterBrowserMode hides the main UI and launches the external browser process
+// EnterBrowserMode hides the main UI and launches the external browser process.
 func (ui *UIManager) EnterBrowserMode(url string) {
 	path := getBrowserPath()
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -228,23 +228,25 @@ func (ui *UIManager) HandleEnterKey() {
 	}
 }
 
+// setState updates the scan state and refreshes the UI as needed.
 func (ui *UIManager) setState(state GridState) {
 	ui.state = state
 	ui.refreshUI()
 }
 
+// refreshUI rebuilds the current container view.
 func (ui *UIManager) refreshUI() {
 	ui.window.SetContent(container.NewBorder(nil, nil, nil, nil, ui.contentContainer))
 }
 
-// OpenVirtualKeyboard navigates to the virtual keyboard view
+// OpenVirtualKeyboard navigates to the virtual keyboard view.
 func (ui *UIManager) OpenVirtualKeyboard() {
 	ui.navigationStack = append(ui.navigationStack, ui.currentContainer)
 	ui.ShowVirtualKeyboardFromLayout()
 	ui.setState(StateIdle)
 }
 
-// ExecuteKeyboardAction handles specific logic for virtual keyboard keys
+// ExecuteKeyboardAction handles specific logic for virtual keyboard keys.
 func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 	switch action.Type {
 	case "char":
@@ -268,7 +270,7 @@ func (ui *UIManager) ExecuteKeyboardAction(action types.Action) {
 	}
 }
 
-// updateView re-renders the grid based on a container action and updates the navigation
+// updateView re-renders the grid based on a container action and updates the navigation.
 func (ui *UIManager) updateView(containerAction types.Action) {
 	ui.currentContainer = containerAction
 	ui.blocks = containerAction.Children
@@ -319,7 +321,7 @@ func (ui *UIManager) updateView(containerAction types.Action) {
 	ui.contentContainer.Refresh()
 }
 
-// ExecuteAction triggers the logic associated with a selected block
+// ExecuteAction triggers the logic associated with a selected block.
 func (ui *UIManager) ExecuteAction(block types.Action) {
 	if block.Type == "back" {
 		if len(ui.navigationStack) > 0 {
@@ -377,7 +379,7 @@ func (ui *UIManager) ExecuteAction(block types.Action) {
 
 // --- SCANNING LOGIC ---
 
-// StartGroupScan begins the automated highlighting of groups
+// StartGroupScan begins the automated highlighting of groups.
 func (ui *UIManager) StartGroupScan() {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentGroup := 0
@@ -417,6 +419,7 @@ func (ui *UIManager) StartGroupScan() {
 	}()
 }
 
+// unhighlightlastGroup clears the previous group highlight.
 func unhighlightlastGroup(group [][]*ColorButton) {
 	for _, row := range group {
 		for _, btn := range row {
@@ -426,6 +429,7 @@ func unhighlightlastGroup(group [][]*ColorButton) {
 	}
 }
 
+// highlightGroup highlights all buttons in a group by index.
 func highlightGroup(group [][][]*ColorButton, index int) {
 	for i, rows := range group {
 		for _, row := range rows {
@@ -441,7 +445,7 @@ func highlightGroup(group [][][]*ColorButton, index int) {
 	}
 }
 
-// StartRowsScan begins the automated highlighting of rows
+// StartRowsScan begins the automated highlighting of rows.
 func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentRow := 0
@@ -474,6 +478,7 @@ func (ui *UIManager) StartRowsScan(onRowSelected func(int)) {
 	}()
 }
 
+// unhighlightlastRow clears the previous row highlight.
 func unhighlightlastRow(row []*ColorButton) {
 	for _, btn := range row {
 		btn.BGColor = btn.OriginalColor
@@ -481,6 +486,7 @@ func unhighlightlastRow(row []*ColorButton) {
 	}
 }
 
+// highlightRow highlights all buttons in a row by index.
 func highlightRow(rows [][]*ColorButton, index int) {
 	for i, row := range rows {
 		for _, btn := range row {
@@ -494,7 +500,7 @@ func highlightRow(rows [][]*ColorButton, index int) {
 	}
 }
 
-// StartItemScan begins the automated highlighting of individual buttons in a row
+// StartItemScan begins the automated highlighting of individual buttons in a row.
 func (ui *UIManager) StartItemScan() {
 	ticker := time.NewTicker(time.Duration(ui.timer) * time.Millisecond)
 	currentCol := 0
@@ -527,11 +533,13 @@ func (ui *UIManager) StartItemScan() {
 	}()
 }
 
+// unhighlightlastItem clears the previous item highlight.
 func unhighlightlastItem(btn *ColorButton) {
 	btn.BGColor = btn.OriginalColor
 	btn.Refresh()
 }
 
+// highlightItem highlights a single item by index.
 func highlightItem(items []*ColorButton, index int) {
 	for i, item := range items {
 		if i == index {
@@ -543,7 +551,7 @@ func highlightItem(items []*ColorButton, index int) {
 	}
 }
 
-// ShowCustomActionGrid generates a grid of actions, used primarily for the virtual keyboard
+// ShowCustomActionGrid generates a grid of actions, used primarily for the virtual keyboard.
 func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	buttonRows := [][]*ColorButton{}
 
@@ -630,7 +638,7 @@ func (ui *UIManager) ShowCustomActionGrid(rows [][]types.Action) {
 	// ui.rows = buttonRows
 }
 
-// ShowVirtualKeyboardFromLayout prepares the keyboard actions based on the configuration layout
+// ShowVirtualKeyboardFromLayout prepares the keyboard actions based on the configuration layout.
 func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	if len(ui.keyboardLayout) == 0 {
 		return
@@ -658,7 +666,7 @@ func (ui *UIManager) ShowVirtualKeyboardFromLayout() {
 	ui.ShowCustomActionGrid(rows)
 }
 
-// LoadKeyboard recursively searches for a keyboard action in the config blocks
+// LoadKeyboard recursively searches for a keyboard action in the config blocks.
 func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 	for _, action := range *actions {
 		if action.Type == "keyboard" {
@@ -673,7 +681,7 @@ func (ui *UIManager) LoadKeyboard(actions *[]types.Action) {
 	}
 }
 
-// StartUI initializes the Fyne application and main window components
+// StartUI initializes the Fyne application and main window components.
 func StartUI(cfg *types.Config) error {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Flexigo")

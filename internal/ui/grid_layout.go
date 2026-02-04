@@ -6,7 +6,7 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
-// GridItem represents an item with its property in the grid
+// GridItem represents an item with its property in the grid.
 type GridItem struct {
 	Object     fyne.CanvasObject `yaml:"-"` // Object to be placed
 	Width      int               `yaml:"width,omitempty"`
@@ -16,13 +16,14 @@ type GridItem struct {
 	GridHeight int               `yaml:"grid_height,omitempty"`
 }
 
-// CustomGridLayout impléments fyne.layout
+// CustomGridLayout implémente fyne.Layout for a grid with variable item spans.
 type CustomGridLayout struct {
 	gridWidth  int
 	gridHeight int
 	items      []GridItem
 }
 
+// NewCustomGridLayout creates a grid layout with fixed dimensions.
 func NewCustomGridLayout(gridWidth, gridHeight int, items []GridItem) *CustomGridLayout {
 	return &CustomGridLayout{
 		gridWidth:  gridWidth,
@@ -31,7 +32,7 @@ func NewCustomGridLayout(gridWidth, gridHeight int, items []GridItem) *CustomGri
 	}
 }
 
-// Layout calculate and move objects. I t will be automatically called by fyne
+// Layout calculates positions and sizes; called automatically by Fyne.
 func (c *CustomGridLayout) Layout(objects []fyne.CanvasObject, containerSize fyne.Size) {
 	if len(objects) == 0 || c.gridWidth == 0 || c.gridHeight == 0 {
 		return
@@ -63,6 +64,7 @@ func (c *CustomGridLayout) Layout(objects []fyne.CanvasObject, containerSize fyn
 	}
 }
 
+// MinSize returns a conservative minimum size for the grid.
 func (c *CustomGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	if len(objects) == 0 {
 		return fyne.NewSize(0, 0)
@@ -85,25 +87,30 @@ func (c *CustomGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	return fyne.NewSize(minWidth, minHeight)
 }
 
+// UpdateGridSize sets new grid dimensions for layout recalculation.
 func (c *CustomGridLayout) UpdateGridSize(width, height int) {
 	c.gridWidth = width
 	c.gridHeight = height
 }
 
+// AddItem appends a grid item definition.
 func (c *CustomGridLayout) AddItem(item GridItem) {
 	c.items = append(c.items, item)
 }
 
+// UpdateItem replaces a grid item definition by index.
 func (c *CustomGridLayout) UpdateItem(index int, item GridItem) {
 	if index >= 0 && index < len(c.items) {
 		c.items[index] = item
 	}
 }
 
+// GetItems returns the current grid item definitions.
 func (c *CustomGridLayout) GetItems() []GridItem {
 	return c.items
 }
 
+// NewContainerFromConfig builds a container using grid items and objects.
 func NewContainerFromConfig(gridWidth, gridHeight int, items []GridItem, objects []fyne.CanvasObject) *fyne.Container {
 	for i := range items {
 		if i < len(objects) {

@@ -12,8 +12,10 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
+// defaultTimer is the fallback scan timer (ms) when none is specified.
 const defaultTimer = 1000 // in ms
 
+// applyDefaultTimer propagates a default timer down container children.
 func applyDefaultTimer(actions []types.Action, defaultTimer int) {
 	for i := range actions {
 		if actions[i].Timer == 0 {
@@ -27,6 +29,7 @@ func applyDefaultTimer(actions []types.Action, defaultTimer int) {
 	}
 }
 
+// ValidateIRConfig validates and normalizes IR settings on the config.
 func ValidateIRConfig(cfg *types.Config) error {
 	if cfg.IRBackend == "" {
 		return nil // Pas d'IR configuré, c'est valide
@@ -43,6 +46,7 @@ func ValidateIRConfig(cfg *types.Config) error {
 	return nil
 }
 
+// UniformizeTimer ensures all actions have a timer, inheriting from containers.
 func UniformizeTimer(cfg *types.Config) {
 	if len(cfg.Blocks) == 0 {
 		return
@@ -58,6 +62,7 @@ func UniformizeTimer(cfg *types.Config) {
 	}
 }
 
+// ApplyDefaultGroup assigns a group to actions that have none.
 func ApplyDefaultGroup(actions []types.Action, defaultGroup int) {
 	for i := range actions {
 		if actions[i].GroupMembership == nil {
@@ -66,6 +71,7 @@ func ApplyDefaultGroup(actions []types.Action, defaultGroup int) {
 	}
 }
 
+// CreateDefaultGroup assigns default groups to container children.
 func CreateDefaultGroup(cfg *types.Config) {
 	for i := range cfg.Blocks {
 		if cfg.Blocks[i].Type == "container" {
@@ -74,7 +80,7 @@ func CreateDefaultGroup(cfg *types.Config) {
 	}
 }
 
-// applyDefaultColors applique récursivement les couleurs par défaut
+// applyDefaultColors applique récursivement les couleurs par défaut.
 func applyDefaultColors(actions []types.Action, defaultColor, defaultHighlight, defaultBackground *types.Color) {
 	for i := range actions {
 		// Applique la couleur par défaut si non définie
@@ -98,7 +104,7 @@ func applyDefaultColors(actions []types.Action, defaultColor, defaultHighlight, 
 	}
 }
 
-// UniformizeColors applique les couleurs par défaut à tous les blocs
+// UniformizeColors applique les couleurs par défaut à tous les blocs.
 func UniformizeColors(cfg *types.Config) {
 	// Définit les couleurs par défaut au niveau de la config si non définies
 	if cfg.DefaultColor == nil {
@@ -115,7 +121,7 @@ func UniformizeColors(cfg *types.Config) {
 	applyDefaultColors(cfg.Blocks, cfg.DefaultColor, cfg.HighlightColor, cfg.Background)
 }
 
-// applyDefaultVoice applique récursivement la voix par défaut aux actions TTS
+// applyDefaultVoice applique récursivement la voix par défaut aux actions TTS.
 func applyDefaultVoice(actions []types.Action, defaultVoice string) {
 	for i := range actions {
 		// Applique la voix par défaut uniquement aux actions TTS sans voix définie
@@ -130,7 +136,7 @@ func applyDefaultVoice(actions []types.Action, defaultVoice string) {
 	}
 }
 
-// UniformizeVoice applique la voix par défaut à toutes les actions TTS
+// UniformizeVoice applique la voix par défaut à toutes les actions TTS.
 func UniformizeVoice(cfg *types.Config) {
 	if cfg.DefaultVoice == "" {
 		return // Pas de voix par défaut définie
@@ -139,6 +145,7 @@ func UniformizeVoice(cfg *types.Config) {
 	applyDefaultVoice(cfg.Blocks, cfg.DefaultVoice)
 }
 
+// loadFromFile loads config from disk and applies defaults and validations.
 func loadFromFile(path string) (*types.Config, error) {
 	_ = godotenv.Load(".env")
 
@@ -164,6 +171,7 @@ func loadFromFile(path string) (*types.Config, error) {
 	return &cfg, nil
 }
 
+// LoadConfig loads the user config or writes the default config if missing.
 func LoadConfig() (*types.Config, error) {
 	userConfigDir, _ := os.UserConfigDir()
 	appConfigPath := filepath.Join(userConfigDir, "Flexigo", "config.yaml")

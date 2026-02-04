@@ -1,6 +1,7 @@
 package http
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -102,6 +103,52 @@ func TestHTTPClient_ExecuteRequest_ErrorStatus(t *testing.T) {
 	err := client.ExecuteRequest("GET", server.URL, nil, "")
 	if err == nil {
 		t.Fatal("Expected error for 404 status, got nil")
+	}
+}
+
+func TestHTTPClient_ExecuteRequest_DefaultContentType(t *testing.T) {
+	expectedBody := `{"hello":"world"}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != expectedBody {
+			t.Errorf("Expected body %q, got %q", expectedBody, string(body))
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient()
+	if err := client.ExecuteRequest("POST", server.URL, nil, expectedBody); err != nil {
+		t.Fatalf("POST request failed: %v", err)
+	}
+}
+
+func TestHTTPClient_ExecuteRequest_EnvVarExpansionInURLAndBody(t *testing.T) {
+	os.Setenv("TEST_HOST", "example.com")
+	os.Setenv("TEST_TOKEN", "body-token")
+	defer os.Unsetenv("TEST_HOST")
+	defer os.Unsetenv("TEST_TOKEN")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/example.com" {
+			t.Errorf("Expected path /example.com, got %s", r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != "Bearer body-token" {
+			t.Errorf("Expected expanded body, got %q", string(body))
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient()
+	url := server.URL + "/${TEST_HOST}"
+	if err := client.ExecuteRequest("POST", url, nil, "Bearer ${TEST_TOKEN}"); err != nil {
+		t.Fatalf("Request failed: %v", err)
 	}
 }
 

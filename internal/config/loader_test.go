@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/DebroyeAntoine/flexigo/internal/types"
@@ -28,7 +30,7 @@ blocks:
     text: "Hello"
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -73,7 +75,7 @@ blocks:
       a: 255
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -115,7 +117,7 @@ blocks:
           a: 255
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -146,7 +148,7 @@ blocks:
     text: "Hello"
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -176,7 +178,7 @@ blocks:
     text: "Hello world"
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -204,7 +206,7 @@ blocks:
     text: "World"
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -232,7 +234,7 @@ blocks:
     text: "Hello"
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -264,7 +266,7 @@ blocks:
         voice: "Microsoft Zira"
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -328,7 +330,7 @@ blocks:
           y: 0
 `
 	file := writeTempYAML(t, yaml)
-	cfg, err := LoadConfig(file)
+	cfg, err := loadFromFile(file)
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
@@ -371,6 +373,35 @@ blocks:
 	}
 }
 
+func TestLoadConfig_DefaultTimerAndGroup(t *testing.T) {
+	yaml := `
+blocks:
+  - label: "Container"
+    type: container
+    children:
+      - label: "Child"
+        type: tts
+        text: "Hello"
+`
+	file := writeTempYAML(t, yaml)
+	cfg, err := loadFromFile(file)
+	if err != nil {
+		t.Fatalf("LoadConfig returned error: %v", err)
+	}
+
+	container := cfg.Blocks[0]
+	if container.Timer != defaultTimer {
+		t.Errorf("expected container default timer %d, got %d", defaultTimer, container.Timer)
+	}
+	if container.Children[0].Timer != defaultTimer {
+		t.Errorf("expected child timer %d, got %d", defaultTimer, container.Children[0].Timer)
+	}
+
+	if container.Children[0].GroupMembership == nil || *container.Children[0].GroupMembership != 0 {
+		t.Errorf("expected default group membership 0, got %v", container.Children[0].GroupMembership)
+	}
+}
+
 // ============================================================================
 // Tests pour ColorToImageColor
 // ============================================================================
@@ -383,18 +414,72 @@ func TestColor_ToImageColor(t *testing.T) {
 		t.Fatal("ToImageColor returned nil")
 	}
 
-	// Vérifie que c'est bien convertible
-	type RGBA struct {
-		R, G, B, A uint8
-	}
-	rgba, ok := imgColor.(RGBA)
-	if !ok {
-		t.Fatal("ToImageColor did not return RGBA type")
+	val := reflect.ValueOf(imgColor)
+	if val.Kind() != reflect.Struct {
+		t.Fatalf("expected struct color, got %s", val.Kind())
 	}
 
-	if rgba.R != 255 || rgba.G != 128 || rgba.B != 64 || rgba.A != 200 {
+	r := val.FieldByName("R")
+	g := val.FieldByName("G")
+	b := val.FieldByName("B")
+	a := val.FieldByName("A")
+	if !r.IsValid() || !g.IsValid() || !b.IsValid() || !a.IsValid() {
+		t.Fatal("ToImageColor did not expose RGBA fields")
+	}
+
+	if r.Uint() != 255 || g.Uint() != 128 || b.Uint() != 64 || a.Uint() != 200 {
 		t.Errorf("color values incorrect: got RGBA(%d,%d,%d,%d)",
-			rgba.R, rgba.G, rgba.B, rgba.A)
+			r.Uint(), g.Uint(), b.Uint(), a.Uint())
 	}
 }
 
+// ============================================================================
+// Tests pour l'IR config
+// ============================================================================
+
+func TestValidateIRConfig_SerialRequiresPort(t *testing.T) {
+	cfg := &types.Config{
+		IRBackend: "serial",
+	}
+
+	err := ValidateIRConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error when IRSerialPort is empty for serial backend")
+	}
+}
+
+func TestValidateIRConfig_DefaultBaudRate(t *testing.T) {
+	cfg := &types.Config{
+		IRBackend:    "serial",
+		IRSerialPort: "/dev/ttyUSB0",
+		IRBaudRate:   0,
+	}
+
+	err := ValidateIRConfig(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.IRBaudRate != 9600 {
+		t.Errorf("expected baud rate 9600, got %d", cfg.IRBaudRate)
+	}
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+func writeTempYAML(t *testing.T, content string) string {
+	t.Helper()
+
+	file, err := os.CreateTemp("", "flexigo-config-*.yaml")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(content); err != nil {
+		t.Fatalf("failed to write temp YAML: %v", err)
+	}
+
+	return file.Name()
+}

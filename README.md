@@ -68,6 +68,8 @@ make build
 
 ## ⚙️ Configuration Guide (`config.yaml`)
 
+For a full list of fields and action types, see `docs/CONFIG.md`.
+
 ### Grid & Scanning Logic
 Flexigo uses a coordinate system `(x, y)`. The scanning follows this hierarchy:
 1.  **Groups**: Defined by `group_membership`. Useful for jumping between functional blocks (e.g., jump from "Menu" to "Keyboard").

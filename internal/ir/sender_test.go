@@ -81,6 +81,10 @@ func TestMockIRSender_ListDevices(t *testing.T) {
 	if len(devices) == 0 {
 		t.Error("Expected at least one device")
 	}
+
+	if devices[0] != "mock_tv" {
+		t.Errorf("Expected first device to be 'mock_tv', got '%s'", devices[0])
+	}
 }
 
 func TestNewIRSender_Mock(t *testing.T) {
@@ -111,7 +115,7 @@ func TestNewIRSender_UnsupportedBackend(t *testing.T) {
 func TestIRCommand_Defaults(t *testing.T) {
 	sender := NewMockIRSender()
 
-	// Test avec repeat = 0 (devrait être traité comme 1)
+	// Test avec repeat = 0 (valeur conservée)
 	cmd := IRCommand{
 		Device:  "tv",
 		Command: "power",
@@ -125,6 +129,24 @@ func TestIRCommand_Defaults(t *testing.T) {
 
 	lastCmd, _ := sender.GetLastCommand()
 	if lastCmd.Repeat != 0 {
-		t.Logf("Repeat value preserved: %d", lastCmd.Repeat)
+		t.Errorf("expected repeat to be preserved as 0, got %d", lastCmd.Repeat)
+	}
+}
+
+func TestMockIRSender_SendRaw(t *testing.T) {
+	sender := NewMockIRSender()
+
+	err := sender.SendRaw("NEC", "0x20DF10EF", 2)
+	if err != nil {
+		t.Fatalf("SendRaw failed: %v", err)
+	}
+
+	lastCmd, err := sender.GetLastCommand()
+	if err != nil {
+		t.Fatalf("GetLastCommand failed: %v", err)
+	}
+
+	if lastCmd.Protocol != "NEC" || lastCmd.Code != "0x20DF10EF" || lastCmd.Repeat != 2 {
+		t.Errorf("unexpected raw command: %+v", lastCmd)
 	}
 }

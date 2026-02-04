@@ -32,6 +32,11 @@ func TestHelperProcess(t *testing.T) {
 		}
 	}
 
+	if len(args) >= 1 && args[0] == "fail" {
+		_, _ = bytes.NewBufferString("forced failure").WriteTo(os.Stderr)
+		os.Exit(1)
+	}
+
 	// Simule différents comportements selon les arguments
 	if len(args) >= 2 {
 		if args[1] == "--list-voices" {
@@ -143,12 +148,29 @@ func TestRustTTS_ListVoices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListVoices returned error: %v", err)
 	}
+	if voices != nil {
+		t.Errorf("expected voices to be nil until parsing is implemented, got %v", voices)
+	}
 
 	// Quand le parsing sera implémenté, on pourra vérifier:
 	_ = voices
 	// if len(voices) != 2 {
 	//     t.Errorf("expected 2 voices, got %d", len(voices))
 	// }
+}
+
+func TestRustTTS_ListVoices_Error(t *testing.T) {
+	execCommand = fakeExecCommand
+	defer func() { execCommand = exec.Command }()
+
+	tts := NewRustTTS("fail")
+	voices, err := tts.ListVoices()
+	if err == nil {
+		t.Fatal("expected error when list voices fails, got nil")
+	}
+	if voices != nil {
+		t.Errorf("expected voices to be nil on error, got %v", voices)
+	}
 }
 
 func TestRustTTS_ErrorHandling(t *testing.T) {
@@ -173,4 +195,3 @@ func TestRustTTS_VoiceErrorHandling(t *testing.T) {
 		t.Error("expected error when binary doesn't exist, got nil")
 	}
 }
-

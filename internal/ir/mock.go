@@ -5,19 +5,19 @@ import (
 	"log"
 )
 
-// MockIRSender implémentation mock pour les tests
+// MockIRSender implémentation mock pour les tests.
 type MockIRSender struct {
 	SentCommands []IRCommand
 }
 
-// NewMockIRSender crée un nouveau mock sender
+// NewMockIRSender crée un nouveau mock sender.
 func NewMockIRSender() *MockIRSender {
 	return &MockIRSender{
 		SentCommands: make([]IRCommand, 0),
 	}
 }
 
-// Send enregistre la commande (mode mock)
+// Send enregistre la commande (mode mock).
 func (m *MockIRSender) Send(cmd IRCommand) error {
 	LogCommand(cmd)
 	m.SentCommands = append(m.SentCommands, cmd)
@@ -26,7 +26,7 @@ func (m *MockIRSender) Send(cmd IRCommand) error {
 	return nil
 }
 
-// SendRaw enregistre la commande brute
+// SendRaw enregistre la commande brute.
 func (m *MockIRSender) SendRaw(protocol string, code string, repeat int) error {
 	return m.Send(IRCommand{
 		Protocol: protocol,
@@ -35,22 +35,22 @@ func (m *MockIRSender) SendRaw(protocol string, code string, repeat int) error {
 	})
 }
 
-// ListDevices retourne des devices fictifs
+// ListDevices retourne des devices fictifs.
 func (m *MockIRSender) ListDevices() ([]string, error) {
 	return []string{"mock_tv", "mock_ac", "mock_stereo"}, nil
 }
 
-// Close ne fait rien en mode mock
+// Close ne fait rien en mode mock.
 func (m *MockIRSender) Close() error {
 	return nil
 }
 
-// Reset réinitialise l'historique des commandes
+// Reset réinitialise l'historique des commandes.
 func (m *MockIRSender) Reset() {
 	m.SentCommands = make([]IRCommand, 0)
 }
 
-// GetLastCommand retourne la dernière commande envoyée
+// GetLastCommand retourne la dernière commande envoyée.
 func (m *MockIRSender) GetLastCommand() (IRCommand, error) {
 	if len(m.SentCommands) == 0 {
 		return IRCommand{}, fmt.Errorf("no commands sent")

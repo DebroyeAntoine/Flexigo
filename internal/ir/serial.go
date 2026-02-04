@@ -8,14 +8,14 @@ import (
 	"go.bug.st/serial"
 )
 
-// SerialIRSender implémentation pour modules IR série (Arduino, ESP32, etc.)
-// Compatible tous OS (Windows, Linux, macOS)
+// SerialIRSender implémentation pour modules IR série (Arduino, ESP32, etc.).
+// Compatible tous OS (Windows, Linux, macOS).
 type SerialIRSender struct {
 	config IRConfig
 	port   serial.Port
 }
 
-// NewSerialIRSender crée un nouveau sender série
+// NewSerialIRSender crée un nouveau sender série.
 func NewSerialIRSender(config IRConfig) (*SerialIRSender, error) {
 	sender := &SerialIRSender{
 		config: config,
@@ -28,7 +28,7 @@ func NewSerialIRSender(config IRConfig) (*SerialIRSender, error) {
 	return sender, nil
 }
 
-// connect ouvre le port série
+// connect ouvre le port série.
 func (s *SerialIRSender) connect() error {
 	mode := &serial.Mode{
 		BaudRate: s.config.BaudRate,
@@ -50,7 +50,7 @@ func (s *SerialIRSender) connect() error {
 	return nil
 }
 
-// Send envoie une commande IR via le port série
+// Send envoie une commande IR via le port série.
 // Format attendu par le module Arduino: sendIR:PROTOCOL,ADDRESS,COMMAND\n
 // Exemple: sendIR:NEC,20DF,10EF\n
 func (s *SerialIRSender) Send(cmd IRCommand) error {
@@ -127,7 +127,7 @@ func (s *SerialIRSender) Send(cmd IRCommand) error {
 	return nil
 }
 
-// SendRaw envoie des données IR brutes
+// SendRaw envoie des données IR brutes.
 // Format: sendIR:RAW,timing1,timing2,timing3,...\n
 func (s *SerialIRSender) SendRaw(protocol string, code string, repeat int) error {
 	if s.port == nil {
@@ -162,7 +162,7 @@ func (s *SerialIRSender) SendRaw(protocol string, code string, repeat int) error
 	return nil
 }
 
-// ListDevices liste les ports série disponibles
+// ListDevices liste les ports série disponibles.
 func (s *SerialIRSender) ListDevices() ([]string, error) {
 	ports, err := serial.GetPortsList()
 	if err != nil {
@@ -171,7 +171,7 @@ func (s *SerialIRSender) ListDevices() ([]string, error) {
 	return ports, nil
 }
 
-// Close ferme le port série
+// Close ferme le port série.
 func (s *SerialIRSender) Close() error {
 	if s.port != nil {
 		return s.port.Close()
@@ -180,7 +180,7 @@ func (s *SerialIRSender) Close() error {
 }
 
 // ReceiveIR met l'Arduino en mode réception pendant 5 secondes
-// et retourne tous les codes IR reçus
+// et retourne tous les codes IR reçus.
 func (s *SerialIRSender) ReceiveIR() ([]IRCommand, error) {
 	if s.port == nil {
 		if err := s.connect(); err != nil {
@@ -258,6 +258,7 @@ func (s *SerialIRSender) ReceiveIR() ([]IRCommand, error) {
 	}
 }
 
+// ListenForEvents écoute les événements du port et les propage au callback.
 func (s *SerialIRSender) ListenForEvents(callback func(string)) {
 	if s.port == nil {
 		return

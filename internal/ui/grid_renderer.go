@@ -11,7 +11,7 @@ import (
 	"github.com/DebroyeAntoine/flexigo/internal/types"
 )
 
-// convertColor convertit une types.Color en color.RGBA
+// convertColor convertit une types.Color en color.RGBA.
 func convertColor(c *types.Color) color.RGBA {
 	if c == nil {
 		// Fallback sur rouge par défaut
@@ -20,6 +20,7 @@ func convertColor(c *types.Color) color.RGBA {
 	return color.RGBA{R: c.R, G: c.G, B: c.B, A: c.A}
 }
 
+// createBorderedButton builds a button wrapped with a simple border.
 func (ui *UIManager) createBorderedButton(
 	label string,
 	onTapped func(),
@@ -40,6 +41,7 @@ func (ui *UIManager) createBorderedButton(
 	return borderedContainer, btn
 }
 
+// renderBlocks renders child actions into a grid and builds selection maps.
 func (ui *UIManager) renderBlocks(containerAction types.Action) (fyne.CanvasObject, [][]*ColorButton, [][][]*ColorButton) {
 	items := []GridItem{}
 	objects := []fyne.CanvasObject{}

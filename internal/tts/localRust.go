@@ -5,22 +5,24 @@ import (
 	"os/exec"
 )
 
+// RustTTS wraps the local Rust TTS binary.
 type RustTTS struct {
 	binPath string
 }
 
 var execCommand = exec.Command
 
+// NewRustTTS creates a TTS provider using the given binary path.
 func NewRustTTS(path string) TTSProvider {
 	return &RustTTS{binPath: path}
 }
 
-// Say parle le texte avec la voix par défaut
+// Say parle le texte avec la voix par défaut.
 func (r *RustTTS) Say(text string) error {
 	return r.SayWithVoice(text, "")
 }
 
-// SayWithVoice parle le texte avec une voix spécifique
+// SayWithVoice parle le texte avec une voix spécifique.
 func (r *RustTTS) SayWithVoice(text string, voice string) error {
 	var cmd *exec.Cmd
 
@@ -42,7 +44,7 @@ func (r *RustTTS) SayWithVoice(text string, voice string) error {
 	return nil
 }
 
-// ListVoices retourne la liste des voix disponibles
+// ListVoices retourne la liste des voix disponibles.
 func (r *RustTTS) ListVoices() ([]string, error) {
 	cmd := execCommand(r.binPath, "--list-voices")
 	output, err := cmd.CombinedOutput()
@@ -56,4 +58,3 @@ func (r *RustTTS) ListVoices() ([]string, error) {
 	fmt.Println(string(output))
 	return nil, nil
 }
-
